@@ -240,7 +240,7 @@ function streetLight(x, z) {
   const pole = cyl(0.09, 0.09, 4.6, 0x3a3a3a, 6);
   pole.position.y = 2.3;
   g.add(pole);
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), new THREE.MeshStandardMaterial({ color: 0xfff2c2, emissive: 0xffdd88, emissiveIntensity: 0.6, flatShading: true }));
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), new THREE.MeshStandardMaterial({ color: 0xfff2c2, emissive: 0xffdd88, emissiveIntensity: 1.4, flatShading: true }));
   lamp.position.y = 4.65;
   g.add(lamp);
   return g;
@@ -334,47 +334,152 @@ function buildLandmark(scene, colliders) {
 }
 
 // ---------- About: kampung house on stilts ----------
+function windowWithFrame(g, x, y, z, w, h, glowLit) {
+  const frame = box(w + 0.28, h + 0.28, 0.1, 0x5a3a20);
+  frame.position.set(x, y, z);
+  g.add(frame);
+  const glass = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, 0.12),
+    new THREE.MeshStandardMaterial({
+      color: 0x7fb7c9, emissive: glowLit ? 0xffdf9e : 0x000000, emissiveIntensity: glowLit ? 0.7 : 0,
+      roughness: 0.3, metalness: 0.2, flatShading: true,
+    })
+  );
+  glass.position.set(x, y, z + 0.03);
+  g.add(glass);
+  for (const sx of [-1, 1]) {
+    const shutter = box(0.22, h + 0.1, 0.08, 0x2f6b4a);
+    shutter.position.set(x + sx * (w / 2 + 0.24), y, z - 0.02);
+    g.add(shutter);
+  }
+}
+
 function buildAboutHouse(scene, zones, colliders) {
   const pos = LAYOUT.aboutPos;
   const g = group(pos.x, 0, pos.z);
   g.rotation.y = Math.PI / 2; // face the approach road coming from the plaza (+X)
 
   const stiltMat = 0x6b4a2b;
-  const stiltPositions = [[-3.4, -2.6], [3.4, -2.6], [-3.4, 2.6], [3.4, 2.6]];
+  const stiltPositions = [[-3.4, -2.6], [3.4, -2.6], [-3.4, 2.6], [3.4, 2.6], [-3.4, 4.4], [3.4, 4.4]];
   stiltPositions.forEach(([sx, sz]) => {
-    const stilt = cyl(0.32, 0.32, 3, stiltMat, 6);
+    const stilt = cyl(0.34, 0.36, 3, stiltMat, 8);
     stilt.position.set(sx, 1.5, sz);
     g.add(stilt);
   });
 
+  // Main floor + porch deck extension
   const floor = box(8.4, 0.6, 6.4, 0xc9a876);
   floor.position.y = 3.2;
   g.add(floor);
+  const porchDeck = box(8.4, 0.5, 2.2, 0xbfa06e);
+  porchDeck.position.set(0, 3.15, 4.5);
+  g.add(porchDeck);
 
-  const walls = box(8, 4, 6, 0xf1e4c8);
+  const walls = box(8, 4, 6, 0xf6ead2);
   walls.position.y = 5.5;
   g.add(walls);
+  // Painted lower skirting for a two-tone facade
+  const skirt = box(8.05, 1, 6.05, 0x2f6b4a);
+  skirt.position.y = 3.9;
+  g.add(skirt);
 
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(6.6, 3.6, 4), flatMat(0xb33a1e));
+  // Hip roof with overhanging eaves + ridge cap
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(7.2, 3.6, 4), flatMat(0xb33a1e));
   roof.rotation.y = Math.PI / 4;
   roof.position.y = 9.3;
   roof.castShadow = true;
   g.add(roof);
+  const ridgeCap = cyl(0.18, 0.18, 3.4, 0x8a2a1a, 6);
+  ridgeCap.rotation.z = Math.PI / 2;
+  ridgeCap.position.y = 10.85;
+  g.add(ridgeCap);
+  const fascia = box(8.6, 0.25, 6.6, 0x8a2a1a);
+  fascia.position.y = 7.55;
+  g.add(fascia);
 
-  const door = box(1.4, 2.4, 0.15, 0x8a5a2b);
-  door.position.set(0, 4.4, 3.02);
-  g.add(door);
-
-  for (const dx of [-2.6, 2.6]) {
-    const win = box(1.1, 1.1, 0.12, 0x7fb7c9);
-    win.position.set(dx, 5.8, 3.02);
-    g.add(win);
+  // Porch roof overhang, supported on two pillars
+  const porchRoof = box(8.6, 0.25, 2.8, 0xb33a1e);
+  porchRoof.rotation.x = -0.12;
+  porchRoof.position.set(0, 7.1, 4.9);
+  g.add(porchRoof);
+  for (const sx of [-3.4, 3.4]) {
+    const pillar = cyl(0.16, 0.16, 3.6, 0xf6ead2, 8);
+    pillar.position.set(sx, 5.0, 5.6);
+    g.add(pillar);
   }
 
-  const stairs = box(1.6, 0.2, 2.6, 0x8a5a2b);
-  stairs.position.set(0, 1.6, 4.6);
+  // Porch railing
+  for (const sx of [-2.6, -1.3, 0, 1.3, 2.6]) {
+    const baluster = cyl(0.06, 0.06, 0.9, 0xf6ead2, 6);
+    baluster.position.set(sx, 3.75, 5.55);
+    g.add(baluster);
+  }
+  const railTop = box(6.6, 0.1, 0.1, 0xf6ead2);
+  railTop.position.set(0, 4.2, 5.55);
+  g.add(railTop);
+
+  const door = box(1.5, 2.5, 0.15, 0x8a5a2b);
+  door.position.set(0, 4.45, 3.02);
+  g.add(door);
+  const doorFrame = box(1.72, 2.72, 0.08, 0x5a3a20);
+  doorFrame.position.set(0, 4.45, 2.96);
+  g.add(doorFrame);
+
+  windowWithFrame(g, -2.7, 5.8, 3.02, 1.1, 1.1, true);
+  windowWithFrame(g, 2.7, 5.8, 3.02, 1.1, 1.1, true);
+  windowWithFrame(g, -3.5, 5.8, 0, 1.0, 1.0, false);
+  windowWithFrame(g, 3.5, 5.8, 0, 1.0, 1.0, true);
+
+  const stairs = box(1.8, 0.2, 2.6, 0x8a5a2b);
+  stairs.position.set(0, 1.6, 6.0);
   stairs.rotation.x = -0.35;
   g.add(stairs);
+  for (const sx of [-0.95, 0.95]) {
+    const stairRail = box(0.08, 0.9, 2.6, 0xf6ead2);
+    stairRail.position.set(sx, 2.15, 6.0);
+    stairRail.rotation.x = -0.35;
+    g.add(stairRail);
+  }
+
+  // Front yard fence with a gate gap facing the road
+  const fenceZ = 8.2;
+  const fenceColor = 0xf6ead2;
+  for (const sx of [-5.4, -4.4, -3.4, 3.4, 4.4, 5.4]) {
+    const post = cyl(0.08, 0.08, 1.1, fenceColor, 6);
+    post.position.set(sx, 0.55, fenceZ);
+    g.add(post);
+  }
+  for (const sx of [-4.9, 4.9]) {
+    const rail = box(2.1, 0.09, 0.09, fenceColor);
+    rail.position.set(sx, 0.75, fenceZ);
+    g.add(rail);
+    const railLow = box(2.1, 0.09, 0.09, fenceColor);
+    railLow.position.set(sx, 0.35, fenceZ);
+    g.add(railLow);
+  }
+  for (const [fx, fz] of [[-8, 0], [8, 0], [0, -6]]) {
+    const sideFence = box(fz === 0 ? 0.12 : 6, 1.1, fz === 0 ? 6 : 0.12, fenceColor);
+    sideFence.position.set(fx, 0.55, fenceZ - 3 + (fz === 0 ? 0 : fz));
+    g.add(sideFence);
+  }
+
+  // Mailbox near the gate
+  const mailPost = cyl(0.06, 0.06, 1.3, 0x8a5a2b, 6);
+  mailPost.position.set(4.9, 0.65, fenceZ + 1);
+  g.add(mailPost);
+  const mailBox = box(0.5, 0.35, 0.3, 0xc1272d);
+  mailBox.position.set(4.9, 1.35, fenceZ + 1);
+  g.add(mailBox);
+
+  // Flower planters flanking the stairs
+  for (const sx of [-1.6, 1.6]) {
+    const pot = cyl(0.4, 0.3, 0.5, 0xb33a1e, 8);
+    pot.position.set(sx, 0.25, 7.1);
+    g.add(pot);
+    const plant = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 0), flatMat(0x3aa84f));
+    plant.position.set(sx, 0.65, 7.1);
+    g.add(plant);
+  }
 
   scene.add(g);
   colliders.push({ type: 'circle', x: pos.x, z: pos.z, radius: 6.5 });
@@ -600,7 +705,10 @@ const SKYLINE_THEMES = [
 
 function fillerBuilding(x, z, w, h, d, theme) {
   const texture = getWindowTexture(theme);
-  const sideMat = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.85, metalness: 0.05 });
+  const sideMat = new THREE.MeshStandardMaterial({
+    map: texture, emissiveMap: texture, emissive: 0xffffff, emissiveIntensity: 0.85,
+    roughness: 0.85, metalness: 0.05,
+  });
   const capMat = flatMat(0x11161c);
   // Box face order: +x, -x, +y, -y, +z, -z
   const materials = [sideMat, sideMat, capMat, capMat, sideMat, sideMat];
@@ -794,24 +902,55 @@ function scatterDecor(scene, colliders) {
   buildTrafficLights(scene);
 }
 
+function buildStarfield(scene) {
+  const count = 700;
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const r = 450 + Math.random() * 150;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * 0.55 * Math.PI; // keep stars above the horizon
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.cos(phi) + 40;
+    positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false });
+  const stars = new THREE.Points(geo, mat);
+  scene.add(stars);
+
+  // A simple decorative moon
+  const moon = new THREE.Mesh(
+    new THREE.SphereGeometry(9, 12, 10),
+    new THREE.MeshStandardMaterial({ color: 0xf3f4ec, emissive: 0xdfe6ff, emissiveIntensity: 0.9, flatShading: true })
+  );
+  moon.position.set(-140, 130, 160);
+  scene.add(moon);
+}
+
 function buildLighting(scene) {
-  const hemi = new THREE.HemisphereLight(0xbfe3ff, 0x3f8f4a, 0.9);
+  const hemi = new THREE.HemisphereLight(0x1c2a4a, 0x0b160d, 0.55);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(0xfff2d9, 1.15);
-  sun.position.set(60, 90, 40);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -140;
-  sun.shadow.camera.right = 140;
-  sun.shadow.camera.top = 140;
-  sun.shadow.camera.bottom = -140;
-  sun.shadow.camera.far = 260;
-  sun.shadow.bias = -0.0015;
-  scene.add(sun);
+  const fill = new THREE.AmbientLight(0x223349, 0.25);
+  scene.add(fill);
 
-  scene.fog = new THREE.Fog(0x9fd6ff, 90, 240);
-  scene.background = new THREE.Color(0x9fd6ff);
+  const moonlight = new THREE.DirectionalLight(0xaecbff, 0.65);
+  moonlight.position.set(60, 90, 40);
+  moonlight.castShadow = true;
+  moonlight.shadow.mapSize.set(2048, 2048);
+  moonlight.shadow.camera.left = -140;
+  moonlight.shadow.camera.right = 140;
+  moonlight.shadow.camera.top = 140;
+  moonlight.shadow.camera.bottom = -140;
+  moonlight.shadow.camera.far = 260;
+  moonlight.shadow.bias = -0.0015;
+  scene.add(moonlight);
+
+  scene.fog = new THREE.Fog(0x0a1428, 70, 230);
+  scene.background = new THREE.Color(0x060b18);
+
+  buildStarfield(scene);
 }
 
 export function buildWorld(scene) {

@@ -212,6 +212,10 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.hud-top-buttons {
+  display: flex;
+  gap: .5rem;
+}
 .hud-help {
   pointer-events: auto;
   width: 2.2rem;
@@ -222,6 +226,7 @@ kbd {
   color: var(--text);
   backdrop-filter: blur(6px);
   cursor: pointer;
+  font-size: .95rem;
   font-family: var(--font-display);
   font-weight: 600;
 }

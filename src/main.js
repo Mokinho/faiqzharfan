@@ -1,8 +1,12 @@
 import * as THREE from 'three';
 import { buildWorld, LAYOUT, bulgeHeight } from './world.js';
 import { Car } from './car.js';
+import { Cat } from './cat.js';
 import { Controls } from './controls.js';
+import { SoundEngine } from './audio.js';
 import * as UI from './ui.js';
+
+const sound = new SoundEngine();
 
 UI.initUI();
 
@@ -31,6 +35,7 @@ resize();
 const { zones, colliders } = buildWorld(scene);
 const car = new Car(scene, new THREE.Vector3(0, 0, 19));
 const controls = new Controls();
+const cat = new Cat(scene, LAYOUT.aboutPos.x + 8, LAYOUT.aboutPos.z, 3);
 
 const circleColliders = colliders.filter((c) => c.type === 'circle');
 const CAR_RADIUS = 1.1;
@@ -50,15 +55,29 @@ document.getElementById('helpBtn').addEventListener('click', () => {
 document.getElementById('startBtn').addEventListener('click', () => {
   UI.hideIntro();
   controls.enabled = true;
+  sound.init();
+  sound.resume();
   clock.getDelta();
 });
+
+const soundBtn = document.getElementById('soundBtn');
+if (soundBtn) {
+  soundBtn.addEventListener('click', () => {
+    const muted = !sound.muted;
+    sound.setMuted(muted);
+    soundBtn.textContent = muted ? '🔇' : '🔊';
+  });
+}
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && activeModalClose) activeModalClose();
 });
 
+let wasColliding = false;
 function resolveCollisions() {
   const p = car.mesh.position;
+  let colliding = false;
+  let impactSpeed = 0;
   for (const c of circleColliders) {
     const dx = p.x - c.x;
     const dz = p.z - c.z;
@@ -68,9 +87,16 @@ function resolveCollisions() {
       const push = (minDist - dist);
       p.x += (dx / dist) * push;
       p.z += (dz / dist) * push;
+      impactSpeed = Math.max(impactSpeed, Math.abs(car.speed));
       car.speed *= 0.55;
+      colliding = true;
     }
   }
+  if (colliding && !wasColliding && impactSpeed > 2.5) {
+    sound.playCollision();
+  }
+  wasColliding = colliding;
+
   const b = LAYOUT.bounds;
   p.x = THREE.MathUtils.clamp(p.x, b.minX + BOUND_MARGIN, b.maxX - BOUND_MARGIN);
   p.z = THREE.MathUtils.clamp(p.z, b.minZ + BOUND_MARGIN, b.maxZ - BOUND_MARGIN);
@@ -136,6 +162,9 @@ function animate() {
   resolveCollisions();
   updateZoneProximity();
   updateCamera(dt, forward);
+  cat.update(dt);
+  sound.updateEngine(car.speed, controls.throttle);
+  sound.setReversing(car.speed < -0.1);
 
   UI.updateSpeed(car.speedKmh);
   UI.drawMinimap(car, zones, LAYOUT.bounds);

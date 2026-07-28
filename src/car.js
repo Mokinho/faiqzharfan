@@ -91,18 +91,44 @@ function buildCarMesh() {
   grille.position.set(0, 0.56, 1.82);
   car.add(grille);
 
-  // Headlights & taillights
+  // Headlights, taillights & reverse lights
   const headlightGeo = new THREE.BoxGeometry(0.32, 0.2, 0.05);
-  const headlightMat = new THREE.MeshStandardMaterial({ color: 0xfff6df, emissive: 0xffedb0, emissiveIntensity: 0.7, flatShading: true });
-  const taillightMat = new THREE.MeshStandardMaterial({ color: 0xb30000, emissive: 0x660000, emissiveIntensity: 0.5, flatShading: true });
+  const headlightMat = new THREE.MeshStandardMaterial({ color: 0xfff6df, emissive: 0xffedb0, emissiveIntensity: 1.6, flatShading: true });
+  const taillightMat = new THREE.MeshStandardMaterial({ color: 0xb30000, emissive: 0x660000, emissiveIntensity: 0.6, flatShading: true });
+  const reverseLightGeo = new THREE.BoxGeometry(0.14, 0.16, 0.05);
+  const reverseLights = [];
   for (const sx of [-0.65, 0.65]) {
     const hl = new THREE.Mesh(headlightGeo, headlightMat);
     hl.position.set(sx, 0.62, 1.87);
     car.add(hl);
+
     const tl = new THREE.Mesh(headlightGeo, taillightMat);
     tl.position.set(sx, 0.62, -1.87);
     car.add(tl);
+
+    // Off by default; Car.update() lights these up bright red while reversing.
+    const reverseMat = new THREE.MeshStandardMaterial({ color: 0x3a0a0a, emissive: 0xff2020, emissiveIntensity: 0, flatShading: true });
+    const rl = new THREE.Mesh(reverseLightGeo, reverseMat);
+    rl.position.set(sx * 0.42, 0.62, -1.88);
+    car.add(rl);
+    reverseLights.push(rl);
   }
+
+  // Real headlight spotlights — no shadow casting to keep this cheap
+  const headlightTarget = new THREE.Object3D();
+  headlightTarget.position.set(0, 0, 14);
+  car.add(headlightTarget);
+  const spotlights = [];
+  for (const sx of [-0.65, 0.65]) {
+    const spot = new THREE.SpotLight(0xfff2d0, 45, 26, 0.5, 0.45, 1.6);
+    spot.position.set(sx, 0.65, 1.9);
+    spot.target = headlightTarget;
+    spot.castShadow = false;
+    car.add(spot);
+    spotlights.push(spot);
+  }
+  car.userData.reverseLights = reverseLights;
+  car.userData.spotlights = spotlights;
 
   // Exhaust pipe
   const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.25, 8), flatMat(0x888888, { roughness: 0.4, metalness: 0.7 }));
@@ -184,6 +210,11 @@ export class Car {
 
     for (const wheel of this.mesh.userData.allWheels) {
       wheel.rotation.x += this.speed * dt * 1.4;
+    }
+
+    const reversing = this.speed < -0.1;
+    for (const rl of this.mesh.userData.reverseLights) {
+      rl.material.emissiveIntensity = reversing ? 2.4 : 0;
     }
 
     return forward;

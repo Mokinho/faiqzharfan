@@ -43,6 +43,40 @@ function group(x, y, z) {
   return g;
 }
 
+// ---------- Gentle "small planet" curvature ----------
+// A large paraboloid approximates a sphere closely at this scale, and is much
+// cheaper to compute than true spherical projection. Larger radius = subtler curve.
+const PLANET_RADIUS = 3000;
+export function bulgeHeight(x, z) {
+  return -(x * x + z * z) / (2 * PLANET_RADIUS);
+}
+
+// Displaces a PlaneGeometry's vertices to follow the planet curve. The plane is
+// defined in local XY (Z=0) before being rotated flat, and that rotation sends
+// local Z -> world Y and local Y -> world -Z, so we bake the world-space bulge
+// into each vertex's local Z using (localX + centerX, -localY + centerZ).
+function applyBulgeToPlane(geometry, centerX, centerZ, extraHeight = 0) {
+  const pos = geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const worldX = pos.getX(i) + centerX;
+    const worldZ = -pos.getY(i) + centerZ;
+    pos.setZ(i, bulgeHeight(worldX, worldZ) + extraHeight);
+  }
+  pos.needsUpdate = true;
+  geometry.computeVertexNormals();
+}
+
+// Lifts every top-level scene object (buildings, decor, billboards — anything
+// not tagged as terrain or a light) up to the curved ground height beneath it.
+// Gameplay logic (car physics, collisions, zone distances) stays in flat X/Z;
+// this only adjusts the rendered Y position, so nothing about driving changes.
+function applyWorldBulge(scene) {
+  for (const child of scene.children) {
+    if (child.userData.terrain || child.isLight) continue;
+    child.position.y += bulgeHeight(child.position.x, child.position.z);
+  }
+}
+
 // Keeps loose decorative scatter (trees, bushes) off the actual drivable roads.
 function isNearRoad(x, z, margin = 6) {
   if (Math.hypot(x, z) < LAYOUT.plazaRadius + margin) return true;
@@ -57,23 +91,30 @@ function buildGround(scene, colliders) {
   const b = LAYOUT.bounds;
   const w = b.maxX - b.minX;
   const d = b.maxZ - b.minZ;
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(w, d, 1, 1),
-    flatMat(0x3f8f4a)
-  );
+  const centerX = (b.minX + b.maxX) / 2;
+  const centerZ = (b.minZ + b.maxZ) / 2;
+  const groundGeo = new THREE.PlaneGeometry(w, d, 64, 64);
+  applyBulgeToPlane(groundGeo, centerX, centerZ);
+  const ground = new THREE.Mesh(groundGeo, flatMat(0x3f8f4a));
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set((b.minX + b.maxX) / 2, 0, (b.minZ + b.maxZ) / 2);
+  ground.position.set(centerX, 0, centerZ);
   ground.receiveShadow = true;
+  ground.userData.terrain = true;
   scene.add(ground);
 
   const roadMat = flatMat(0x2b2b2f);
   const laneMat = flatMat(0xf7f3ee);
 
   function roadSegment(cx, cz, sx, sz) {
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz), roadMat);
+    const segX = Math.max(2, Math.round(sx / 6));
+    const segZ = Math.max(2, Math.round(sz / 6));
+    const geo = new THREE.PlaneGeometry(sx, sz, segX, segZ);
+    applyBulgeToPlane(geo, cx, cz, 0.02);
+    const road = new THREE.Mesh(geo, roadMat);
     road.rotation.x = -Math.PI / 2;
-    road.position.set(cx, 0.02, cz);
+    road.position.set(cx, 0, cz);
     road.receiveShadow = true;
+    road.userData.terrain = true;
     scene.add(road);
   }
 
@@ -91,7 +132,8 @@ function buildGround(scene, colliders) {
   for (let z = LAYOUT.boulevardStartZ; z < LAYOUT.contactPos.z - 10; z += 6) {
     const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 3), laneMat);
     dash.rotation.x = -Math.PI / 2;
-    dash.position.set(0, 0.03, z);
+    dash.position.set(0, bulgeHeight(0, z) + 0.03, z);
+    dash.userData.terrain = true;
     scene.add(dash);
   }
 
@@ -563,14 +605,14 @@ function fillerBuilding(x, z, w, h, d, theme) {
   // Box face order: +x, -x, +y, -y, +z, -z
   const materials = [sideMat, sideMat, capMat, capMat, sideMat, sideMat];
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), materials);
-  mesh.position.set(x, h / 2, z);
+  mesh.position.y = h / 2;
   mesh.castShadow = true;
   mesh.receiveShadow = true;
 
   const roofCap = box(w * 1.04, 0.4, d * 1.04, 0x11161c);
-  roofCap.position.set(x, h + 0.2, z);
+  roofCap.position.y = h + 0.2;
 
-  const g = new THREE.Group();
+  const g = group(x, 0, z);
   g.add(mesh, roofCap);
   return g;
 }
@@ -784,6 +826,7 @@ export function buildWorld(scene) {
   buildContactKedai(scene, zones, colliders);
   buildBillboards(scene, zones, colliders);
   scatterDecor(scene, colliders);
+  applyWorldBulge(scene);
 
   return { zones, colliders };
 }

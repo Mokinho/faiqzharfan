@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildWorld, LAYOUT } from './world.js';
+import { buildWorld, LAYOUT, bulgeHeight } from './world.js';
 import { Car } from './car.js';
 import { Controls } from './controls.js';
 import * as UI from './ui.js';
@@ -74,6 +74,7 @@ function resolveCollisions() {
   const b = LAYOUT.bounds;
   p.x = THREE.MathUtils.clamp(p.x, b.minX + BOUND_MARGIN, b.maxX - BOUND_MARGIN);
   p.z = THREE.MathUtils.clamp(p.z, b.minZ + BOUND_MARGIN, b.maxZ - BOUND_MARGIN);
+  p.y = bulgeHeight(p.x, p.z);
 }
 
 function updateZoneProximity() {

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bulgeHeight } from './world.js';
 
 function flatMat(color, extra) {
   return new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.6, metalness: 0.15, ...extra });
@@ -178,6 +179,7 @@ export class Car {
 
     const forward = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     this.mesh.position.addScaledVector(forward, this.speed * dt);
+    this.mesh.position.y = bulgeHeight(this.mesh.position.x, this.mesh.position.z);
     this.mesh.rotation.y = this.yaw;
 
     for (const wheel of this.mesh.userData.allWheels) {

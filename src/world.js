@@ -113,6 +113,35 @@ function palmTree(x, z) {
   return g;
 }
 
+// A small roadside shophouse (kedai) used to break up the boulevard's tree line.
+function shophouse(x, z, side, hue) {
+  const g = group(x, 0, z);
+  g.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2; // face the road, same convention as billboards
+
+  const body = box(3.6, 4.4, 3.2, hue.wall);
+  body.position.y = 2.2;
+  g.add(body);
+
+  const roof = box(3.9, 0.3, 3.5, hue.roof);
+  roof.position.y = 4.55;
+  g.add(roof);
+
+  const awning = box(3.9, 0.15, 1.1, hue.roof);
+  awning.rotation.x = -0.22;
+  awning.position.set(0, 2.85, 1.85);
+  g.add(awning);
+
+  const door = box(0.9, 2, 0.1, 0x2a1c12);
+  door.position.set(-0.9, 1, 1.62);
+  g.add(door);
+
+  const win = box(1.1, 1.1, 0.1, 0x9fd6ff);
+  win.position.set(0.8, 2.9, 1.62);
+  g.add(win);
+
+  return g;
+}
+
 function streetLight(x, z) {
   const g = group(x, 0, z);
   const pole = cyl(0.09, 0.09, 4.6, 0x3a3a3a, 6);
@@ -395,13 +424,37 @@ function buildBillboards(scene, zones, colliders) {
   });
 }
 
-function scatterDecor(scene) {
+function scatterDecor(scene, colliders) {
   const rand = (min, max) => min + Math.random() * (max - min);
+  const shopPalette = [
+    { wall: 0xe8d3a0, roof: 0xc1272d },
+    { wall: 0xdce8d0, roof: 0x2f6b4a },
+    { wall: 0xf2e2c8, roof: 0x1c4f82 },
+    { wall: 0xead6e8, roof: 0x5a2c6b },
+  ];
 
-  // Trees along the boulevard, set back from the billboards
+  // Trees along the boulevard, set back from the billboards — with the occasional
+  // small shophouse mixed in so the street doesn't read as an unbroken tree line.
+  let slot = 0;
   for (let z = LAYOUT.boulevardStartZ - 6; z < LAYOUT.contactPos.z - 8; z += rand(9, 14)) {
-    scene.add(palmTree(-17 - rand(0, 5), z));
-    scene.add(palmTree(17 + rand(0, 5), z + rand(-3, 3)));
+    const leftX = -17 - rand(0, 5);
+    const rightX = 17 + rand(0, 5);
+    const rightZ = z + rand(-3, 3);
+
+    if (slot % 3 === 1) {
+      scene.add(shophouse(leftX, z, -1, shopPalette[slot % shopPalette.length]));
+      colliders.push({ type: 'circle', x: leftX, z, radius: 2.4 });
+    } else {
+      scene.add(palmTree(leftX, z));
+    }
+
+    if (slot % 3 === 2) {
+      scene.add(shophouse(rightX, rightZ, 1, shopPalette[(slot + 2) % shopPalette.length]));
+      colliders.push({ type: 'circle', x: rightX, z: rightZ, radius: 2.4 });
+    } else {
+      scene.add(palmTree(rightX, rightZ));
+    }
+    slot++;
   }
 
   // Streetlights along the boulevard
@@ -457,7 +510,7 @@ export function buildWorld(scene) {
   buildSkillsWorkshop(scene, zones, colliders);
   buildContactKedai(scene, zones, colliders);
   buildBillboards(scene, zones, colliders);
-  scatterDecor(scene);
+  scatterDecor(scene, colliders);
 
   return { zones, colliders };
 }

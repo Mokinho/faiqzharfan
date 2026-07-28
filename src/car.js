@@ -92,7 +92,7 @@ export class Car {
 
     const speedFactor = THREE.MathUtils.clamp(Math.abs(this.speed) / 5, 0.15, 1);
     const steerDir = this.speed >= 0 ? 1 : -1;
-    this.yaw += steer * this.maxSteer * speedFactor * steerDir * dt;
+    this.yaw -= steer * this.maxSteer * speedFactor * steerDir * dt;
 
     const forward = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     this.mesh.position.addScaledVector(forward, this.speed * dt);

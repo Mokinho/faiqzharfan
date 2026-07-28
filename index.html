@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Faiq Zharfan — Drive-Thru Portfolio</title>
+<meta name="description" content="An interactive 3D portfolio game — drive around a toy Malaysian city block and explore Faiq Zharfan's work, skills and story.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <div class="loading-inner">
+    <p class="loading-eyebrow">Faiq Zharfan</p>
+    <h1 class="loading-title">Drive-Thru Portfolio<span class="dot">.</span></h1>
+    <div class="loading-bar"><div class="loading-bar-fill" id="loadingBarFill"></div></div>
+    <p class="loading-hint" id="loadingHint">Warming up the engine…</p>
+  </div>
+</div>
+
+<div id="intro" class="intro hidden">
+  <div class="intro-card">
+    <p class="intro-eyebrow">Full-Stack WordPress Developer — 4+ Years Experience</p>
+    <h1>I build websites that are fast, secure &amp; built to grow.</h1>
+    <p class="intro-sub">Welcome to my portfolio, built like a toy Malaysian city block. Hop in and drive
+      around to explore my story, skills, work and contact details — inspired by
+      <a href="https://bruno-simon.com/" target="_blank" rel="noopener noreferrer">bruno-simon.com</a>.</p>
+    <div class="intro-controls">
+      <div class="control-group">
+        <span class="key-row"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>
+        <span>or arrow keys to drive</span>
+      </div>
+      <div class="control-group">
+        <span class="key-row"><kbd>E</kbd></span>
+        <span>to open a zone when prompted</span>
+      </div>
+      <div class="control-group mobile-only">
+        <span class="key-row"><kbd>◎</kbd></span>
+        <span>on-screen wheel &amp; pedals on touch devices</span>
+      </div>
+    </div>
+    <button id="startBtn" class="btn-start">Start Driving →</button>
+  </div>
+</div>
+
+<canvas id="scene"></canvas>
+
+<div id="hud" class="hud hidden">
+  <header class="hud-top">
+    <div class="hud-brand">FZ<span class="dot">.</span></div>
+    <div class="hud-zone" id="hudZone">Jalan Faiq</div>
+    <button class="hud-help" id="helpBtn" aria-label="Show controls">?</button>
+  </header>
+
+  <div class="hud-bottom">
+    <div class="minimap-wrap">
+      <canvas id="minimap" width="150" height="150"></canvas>
+    </div>
+    <div class="speedo">
+      <div class="speedo-value" id="speedValue">0</div>
+      <div class="speedo-label">km/h</div>
+    </div>
+  </div>
+
+  <div class="prompt hidden" id="interactPrompt">
+    <span class="prompt-key">E</span>
+    <span class="prompt-text" id="interactText">View project</span>
+  </div>
+
+  <div class="touch-controls" id="touchControls">
+    <div class="touch-wheel" id="touchWheel">
+      <div class="touch-wheel-knob" id="touchWheelKnob"></div>
+    </div>
+    <div class="touch-pedals">
+      <button class="touch-btn touch-interact" id="touchInteract">E</button>
+      <button class="touch-btn touch-brake" id="touchBrake">▼</button>
+      <button class="touch-btn touch-gas" id="touchGas">▲</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalRoot" class="modal-root hidden">
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+  <div class="modal-card" id="modalCard" role="dialog" aria-modal="true"></div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

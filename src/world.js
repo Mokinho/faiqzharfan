@@ -578,19 +578,274 @@ function buildContactKedai(scene, zones, colliders) {
 }
 
 // ---------- Project boulevard billboards ----------
+// Small procedural vector icon set standing in for each project's category —
+// drawn with plain canvas paths so no external image assets are needed.
+function drawIcon(ctx, type, cx, cy, size, color) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  const s = size;
+  const shade = 'rgba(0,0,0,0.35)';
+
+  switch (type) {
+    case 'tag':
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.45, -s * 0.1);
+      ctx.lineTo(s * 0.05, -s * 0.45);
+      ctx.lineTo(s * 0.45, -s * 0.05);
+      ctx.lineTo(s * 0.05, s * 0.45);
+      ctx.lineTo(-s * 0.45, s * 0.1);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = shade;
+      ctx.beginPath();
+      ctx.arc(-s * 0.2, -s * 0.22, s * 0.07, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'coin':
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = shade;
+      ctx.lineWidth = s * 0.05;
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = shade;
+      ctx.font = `700 ${Math.round(s * 0.42)}px "Space Grotesk", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('$', 0, s * 0.03);
+      break;
+    case 'people':
+      for (const dx of [-s * 0.2, s * 0.2]) {
+        ctx.beginPath();
+        ctx.arc(dx, -s * 0.18, s * 0.14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(dx - s * 0.2, s * 0.4);
+        ctx.quadraticCurveTo(dx, -s * 0.02, dx + s * 0.2, s * 0.4);
+        ctx.closePath();
+        ctx.fill();
+      }
+      break;
+    case 'car':
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.42, s * 0.1);
+      ctx.lineTo(-s * 0.3, -s * 0.08);
+      ctx.lineTo(-s * 0.1, -s * 0.22);
+      ctx.lineTo(s * 0.18, -s * 0.22);
+      ctx.lineTo(s * 0.36, -s * 0.05);
+      ctx.lineTo(s * 0.42, s * 0.1);
+      ctx.lineTo(s * 0.42, s * 0.22);
+      ctx.lineTo(-s * 0.42, s * 0.22);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = shade;
+      for (const dx of [-s * 0.22, s * 0.22]) {
+        ctx.beginPath();
+        ctx.arc(dx, s * 0.24, s * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    case 'building': {
+      ctx.fillRect(-s * 0.32, -s * 0.42, s * 0.64, s * 0.84);
+      ctx.fillStyle = shade;
+      const cols = 3, rows = 4;
+      const w = s * 0.1, h = s * 0.1;
+      const gapX = (s * 0.64 - w * cols) / (cols + 1);
+      const gapY = (s * 0.84 - h * rows) / (rows + 1);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          ctx.fillRect(-s * 0.32 + gapX + (w + gapX) * c, -s * 0.42 + gapY + (h + gapY) * r, w, h);
+        }
+      }
+      break;
+    }
+    case 'moon':
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(s * 0.18, -s * 0.08, s * 0.34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      break;
+    case 'rack':
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(-s * 0.4, -s * 0.36 + i * (s * 0.24), s * 0.8, s * 0.14);
+      }
+      break;
+    case 'chart':
+      [0.3, 0.55, 0.4, 0.75].forEach((h, i) => {
+        ctx.fillRect(-s * 0.4 + i * (s * 0.22), s * 0.4 - s * h, s * 0.16, s * h);
+      });
+      break;
+    case 'leaf':
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.42);
+      ctx.quadraticCurveTo(s * 0.4, -s * 0.1, 0, s * 0.42);
+      ctx.quadraticCurveTo(-s * 0.4, -s * 0.1, 0, -s * 0.42);
+      ctx.fill();
+      ctx.strokeStyle = shade;
+      ctx.lineWidth = s * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.32);
+      ctx.lineTo(0, s * 0.3);
+      ctx.stroke();
+      break;
+    case 'plane':
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.45);
+      ctx.lineTo(s * 0.1, s * 0.1);
+      ctx.lineTo(s * 0.42, s * 0.28);
+      ctx.lineTo(s * 0.42, s * 0.36);
+      ctx.lineTo(s * 0.08, s * 0.24);
+      ctx.lineTo(s * 0.05, s * 0.44);
+      ctx.lineTo(s * 0.16, s * 0.5);
+      ctx.lineTo(0, s * 0.46);
+      ctx.lineTo(-s * 0.16, s * 0.5);
+      ctx.lineTo(-s * 0.05, s * 0.44);
+      ctx.lineTo(-s * 0.08, s * 0.24);
+      ctx.lineTo(-s * 0.42, s * 0.36);
+      ctx.lineTo(-s * 0.42, s * 0.28);
+      ctx.lineTo(-s * 0.1, s * 0.1);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'column':
+      for (const dx of [-s * 0.28, 0, s * 0.28]) {
+        ctx.fillRect(dx - s * 0.06, -s * 0.3, s * 0.12, s * 0.6);
+      }
+      ctx.fillRect(-s * 0.42, -s * 0.4, s * 0.84, s * 0.1);
+      ctx.fillRect(-s * 0.42, s * 0.3, s * 0.84, s * 0.1);
+      break;
+    case 'tent':
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.42);
+      ctx.lineTo(s * 0.42, s * 0.38);
+      ctx.lineTo(-s * 0.42, s * 0.38);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = shade;
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.1);
+      ctx.lineTo(s * 0.14, s * 0.38);
+      ctx.lineTo(-s * 0.14, s * 0.38);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'cap':
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.3);
+      ctx.lineTo(s * 0.42, -s * 0.05);
+      ctx.lineTo(0, s * 0.2);
+      ctx.lineTo(-s * 0.42, -s * 0.05);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(-s * 0.16, s * 0.02, s * 0.32, s * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(s * 0.3, -s * 0.02);
+      ctx.lineTo(s * 0.34, s * 0.3);
+      ctx.lineTo(s * 0.24, s * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'globe':
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = shade;
+      ctx.lineWidth = s * 0.035;
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.42, 0);
+      ctx.lineTo(s * 0.42, 0);
+      ctx.stroke();
+      for (const ry of [0.42, 0.24]) {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, s * ry, s * 0.42, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      break;
+    case 'cube': {
+      const q = s * 0.34;
+      ctx.beginPath();
+      ctx.moveTo(0, -q * 1.2);
+      ctx.lineTo(q, -q * 0.5);
+      ctx.lineTo(q, q * 0.7);
+      ctx.lineTo(0, q * 1.35);
+      ctx.lineTo(-q, q * 0.7);
+      ctx.lineTo(-q, -q * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = shade;
+      ctx.lineWidth = s * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(0, -q * 1.2);
+      ctx.lineTo(0, q * 0.1);
+      ctx.moveTo(0, q * 0.1);
+      ctx.lineTo(q, -q * 0.5);
+      ctx.moveTo(0, q * 0.1);
+      ctx.lineTo(-q, -q * 0.5);
+      ctx.moveTo(0, q * 0.1);
+      ctx.lineTo(0, q * 1.35);
+      ctx.stroke();
+      break;
+    }
+    default:
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+  }
+  ctx.restore();
+}
+
 function createBillboardTexture(project) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 320;
   const ctx = canvas.getContext('2d');
 
+  // Card background with a subtle vignette for depth
   const grad = ctx.createLinearGradient(0, 0, 512, 320);
   grad.addColorStop(0, project.colorA);
   grad.addColorStop(1, project.colorB);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 512, 320);
+  const vignette = ctx.createRadialGradient(256, 140, 40, 256, 140, 340);
+  vignette.addColorStop(0, 'rgba(0,0,0,0)');
+  vignette.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, 512, 320);
 
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  // Browser-style chrome bar, echoing the mockup cards on the original site
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.fillRect(0, 0, 512, 34);
+  ['#ff5f57', '#febc2e', '#28c840'].forEach((c, i) => {
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.arc(20 + i * 18, 17, 5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillRect(84, 9, 400, 16);
+
+  // Hero icon badge
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  ctx.beginPath();
+  ctx.arc(256, 122, 58, 0, Math.PI * 2);
+  ctx.fill();
+  drawIcon(ctx, project.icon || 'tag', 256, 122, 72, '#f7f3ee');
+
+  // Content-line placeholders, like a page preview under the hero
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.fillRect(176, 198, 160, 9);
+  ctx.fillRect(206, 214, 100, 7);
+
+  // Bottom label strip
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
   ctx.fillRect(0, 230, 512, 90);
 
   ctx.fillStyle = '#f7f3ee';
@@ -599,7 +854,7 @@ function createBillboardTexture(project) {
 
   ctx.fillStyle = '#e85002';
   ctx.font = '600 18px "Inter", sans-serif';
-  ctx.fillText(project.tag.toUpperCase(), 28, 40);
+  ctx.fillText(project.tag.toUpperCase(), 28, 58);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -640,7 +895,10 @@ function buildBillboards(scene, zones, colliders) {
     const texture = createBillboardTexture(project);
     const panel = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.25),
-      new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8, flatShading: true })
+      new THREE.MeshStandardMaterial({
+        map: texture, emissiveMap: texture, emissive: 0xffffff, emissiveIntensity: 0.9,
+        roughness: 0.8, flatShading: true,
+      })
     );
     panel.position.y = 3.9;
     panel.castShadow = true;

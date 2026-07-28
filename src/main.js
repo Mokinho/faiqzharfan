@@ -29,7 +29,7 @@ resize();
 
 // ---------- World & car ----------
 const { zones, colliders } = buildWorld(scene);
-const car = new Car(scene, new THREE.Vector3(0, 0, 14));
+const car = new Car(scene, new THREE.Vector3(0, 0, 19));
 const controls = new Controls();
 
 const circleColliders = colliders.filter((c) => c.type === 'circle');

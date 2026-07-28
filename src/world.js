@@ -43,6 +43,15 @@ function group(x, y, z) {
   return g;
 }
 
+// Keeps loose decorative scatter (trees, bushes) off the actual drivable roads.
+function isNearRoad(x, z, margin = 6) {
+  if (Math.hypot(x, z) < LAYOUT.plazaRadius + margin) return true;
+  if (Math.abs(x) < 8 + margin && z > -LAYOUT.plazaRadius && z < LAYOUT.contactPos.z + margin) return true;
+  if (Math.abs(z) < 8 + margin && x > LAYOUT.aboutPos.x - margin && x < -LAYOUT.plazaRadius) return true;
+  if (Math.abs(z) < 8 + margin && x < LAYOUT.skillsPos.x + margin && x > LAYOUT.plazaRadius) return true;
+  return false;
+}
+
 // ---------- Ground & roads ----------
 function buildGround(scene, colliders) {
   const b = LAYOUT.bounds;
@@ -107,8 +116,50 @@ function palmTree(x, z) {
     frond.rotation.z = Math.PI / 2.6;
     frond.rotation.y = (i / 6) * Math.PI * 2;
     frond.translateOnAxis(new THREE.Vector3(0, 1, 0), 1.1);
-    frond.castShadow = true;
     g.add(frond);
+  }
+  return g;
+}
+
+// A rounded leafy shade tree (rain-tree style), for variety against the palms.
+function canopyTree(x, z) {
+  const g = group(x, 0, z);
+  const scale = 0.85 + Math.random() * 0.4;
+  const trunkH = 2.6 * scale;
+  const trunk = cyl(0.22 * scale, 0.32 * scale, trunkH, 0x6b4a2b, 6);
+  trunk.position.y = trunkH / 2;
+  trunk.rotation.z = (Math.random() - 0.5) * 0.1;
+  g.add(trunk);
+
+  const greens = [0x2f9e44, 0x3aa84f, 0x27823a];
+  const canopyY = trunkH + 1.6 * scale;
+  const blobPositions = [
+    [0, 0, 0, 1.6], [0.9, -0.3, 0.5, 1.1], [-0.9, -0.2, -0.4, 1.15],
+    [0.4, 0.5, -0.9, 1.05], [-0.5, 0.4, 0.8, 1.0],
+  ];
+  blobPositions.forEach(([bx, by, bz, br], i) => {
+    const blob = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(br * scale, 0),
+      flatMat(greens[i % greens.length])
+    );
+    blob.position.set(bx * scale, canopyY + by * scale, bz * scale);
+    g.add(blob);
+  });
+  return g;
+}
+
+// A low shrub for ground-level greenery near buildings and road edges.
+function bush(x, z) {
+  const g = group(x, 0, z);
+  const scale = 0.6 + Math.random() * 0.5;
+  const greens = [0x2f9e44, 0x3aa84f];
+  for (let i = 0; i < 3; i++) {
+    const blob = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.5 * scale, 0),
+      flatMat(greens[i % greens.length])
+    );
+    blob.position.set((Math.random() - 0.5) * 0.5, 0.35 * scale + Math.random() * 0.15, (Math.random() - 0.5) * 0.5);
+    g.add(blob);
   }
   return g;
 }
@@ -166,36 +217,78 @@ function flagPole(x, z, colors) {
   return g;
 }
 
-// ---------- Central landmark: toy twin towers ----------
+// ---------- Central landmark: KLCC-style twin towers ----------
 function buildLandmark(scene, colliders) {
   const g = group(0, 0, 0);
-  const base = cyl(9, 10, 1.2, 0xd9c3ab, 8);
-  base.position.y = 0.6;
+  const base = cyl(13, 14.5, 1.4, 0xd9c3ab, 16);
+  base.position.y = 0.7;
   g.add(base);
+  const plaza = cyl(11.5, 11.5, 0.3, 0xb9a586, 16);
+  plaza.position.y = 1.55;
+  g.add(plaza);
+
+  const glassColor = 0x9fd0e0;
+  const steelColor = 0xe8ecee;
+  const steelMat = new THREE.MeshStandardMaterial({ color: steelColor, roughness: 0.3, metalness: 0.65, flatShading: true });
+
+  // Tapered, tiered tower profile (setbacks like the real KLCC silhouette), tier[i] = [radius, height]
+  const tiers = [
+    [3.2, 7], [3.2, 0.6], [2.85, 6], [2.85, 0.6], [2.5, 5.5],
+    [2.5, 0.5], [2.1, 5], [2.1, 0.5], [1.65, 4.5], [1.65, 0.4], [1.2, 3.5],
+  ];
 
   function tower(offsetX) {
     const t = group(offsetX, 0, 0);
-    const shaft = cyl(1.6, 2, 16, 0xb9c4cc, 8);
-    shaft.position.y = 8.6;
-    t.add(shaft);
-    const mid = cyl(2.1, 1.6, 1.4, 0xe85002, 8);
-    mid.position.y = 16.5;
-    t.add(mid);
-    const spire = cyl(0.15, 0.5, 5, 0xf7f3ee, 6);
-    spire.position.y = 19.8;
-    t.add(spire);
+    let y = 1.7;
+    let prevR = tiers[0][0] + 0.35;
+    tiers.forEach(([r, h], i) => {
+      const seg = cyl(r, prevR, h, i % 2 === 0 ? glassColor : steelColor, 12, {
+        roughness: i % 2 === 0 ? 0.22 : 0.3,
+        metalness: i % 2 === 0 ? 0.55 : 0.65,
+      });
+      seg.position.y = y + h / 2;
+      t.add(seg);
+      y += h;
+      prevR = r;
+    });
+
+    // Mast / spire with a pinnacle, echoing the real towers' antenna masts
+    const mastBase = cyl(0.35, 1.2, 3, 0xf7f3ee, 8);
+    mastBase.position.y = y + 1.5;
+    t.add(mastBase);
+    y += 3;
+    const mast = cyl(0.08, 0.35, 5.5, 0xf7f3ee, 6);
+    mast.position.y = y + 2.75;
+    t.add(mast);
+    y += 5.5;
+    const pinnacle = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), steelMat);
+    pinnacle.position.y = y + 0.1;
+    t.add(pinnacle);
+
     return t;
   }
-  const towerL = tower(-3.4);
-  const towerR = tower(3.4);
+  const towerL = tower(-6.2);
+  const towerR = tower(6.2);
   g.add(towerL, towerR);
 
-  const bridge = box(4.2, 0.6, 1.6, 0xe85002);
-  bridge.position.set(0, 12, 0);
+  // Skybridge between the towers (double-deck look), roughly 40% up the shaft
+  const bridgeY = 17;
+  const bridge = box(7.6, 1.1, 2.1, 0xd9c3ab, { roughness: 0.5, metalness: 0.2 });
+  bridge.position.set(0, bridgeY, 0);
   g.add(bridge);
+  const bridgeGlass = box(7.65, 0.7, 2.15, 0x9fd0e0, { roughness: 0.2, metalness: 0.5 });
+  bridgeGlass.position.set(0, bridgeY + 0.9, 0);
+  g.add(bridgeGlass);
+  // Diagonal support struts under the bridge
+  for (const s of [-1, 1]) {
+    const strut = cyl(0.12, 0.12, 5.6, 0xaab0b4, 6, { roughness: 0.4, metalness: 0.6 });
+    strut.position.set(s * 3.6, bridgeY - 2.6, 0);
+    strut.rotation.z = s * 0.55;
+    g.add(strut);
+  }
 
   scene.add(g);
-  colliders.push({ type: 'circle', x: 0, z: 0, radius: 11 });
+  colliders.push({ type: 'circle', x: 0, z: 0, radius: 14.5 });
 }
 
 // ---------- About: kampung house on stilts ----------
@@ -424,8 +517,167 @@ function buildBillboards(scene, zones, colliders) {
   });
 }
 
+// ---------- Filler skyline: generic buildings with lit-window facades ----------
+const windowTextureCache = new Map();
+function getWindowTexture(theme) {
+  if (windowTextureCache.has(theme)) return windowTextureCache.get(theme);
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = theme.base;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const cols = 5;
+  const rows = 10;
+  const padX = 6;
+  const padY = 8;
+  const cellW = canvas.width / cols;
+  const cellH = canvas.height / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const lit = Math.random() < theme.litChance;
+      ctx.fillStyle = lit ? theme.lit : theme.dark;
+      ctx.fillRect(c * cellW + padX / 2, r * cellH + padY / 2, cellW - padX, cellH - padY);
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  windowTextureCache.set(theme, texture);
+  return texture;
+}
+
+const SKYLINE_THEMES = [
+  { base: '#1c2733', dark: '#243342', lit: '#ffe9a8', litChance: 0.35 },
+  { base: '#2a2420', dark: '#332b25', lit: '#ffd9a0', litChance: 0.3 },
+  { base: '#152229', dark: '#1c2e37', lit: '#bfe8ff', litChance: 0.28 },
+  { base: '#241c2a', dark: '#2e2434', lit: '#ffe0f0', litChance: 0.25 },
+];
+
+function fillerBuilding(x, z, w, h, d, theme) {
+  const texture = getWindowTexture(theme);
+  const sideMat = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.85, metalness: 0.05 });
+  const capMat = flatMat(0x11161c);
+  // Box face order: +x, -x, +y, -y, +z, -z
+  const materials = [sideMat, sideMat, capMat, capMat, sideMat, sideMat];
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), materials);
+  mesh.position.set(x, h / 2, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  const roofCap = box(w * 1.04, 0.4, d * 1.04, 0x11161c);
+  roofCap.position.set(x, h + 0.2, z);
+
+  const g = new THREE.Group();
+  g.add(mesh, roofCap);
+  return g;
+}
+
+// A distant, denser skyline scattered beyond the roads/zones so the horizon
+// doesn't read as empty grass along the whole drive — kept well clear of
+// drivable areas (plaza disc, boulevard corridor, and the two side spurs).
+function buildSkyline(scene, colliders) {
+  const rand = (min, max) => min + Math.random() * (max - min);
+  const b = LAYOUT.bounds;
+  const placed = [];
+
+  function tooClose(x, z, minDist) {
+    return placed.some((p) => Math.hypot(p.x - x, p.z - z) < minDist);
+  }
+
+  function blockedByRoads(x, z) {
+    if (Math.hypot(x, z) < LAYOUT.plazaRadius + 34) return true; // plaza, with room for the corner turns
+    if (Math.abs(x) < 36 && z > -30 && z < LAYOUT.contactPos.z + 20) return true; // boulevard + tree/shophouse row
+    if (Math.abs(z) < 22 && x > LAYOUT.aboutPos.x - 14 && x < -LAYOUT.plazaRadius - 4) return true; // west spur
+    if (Math.abs(z) < 22 && x < LAYOUT.skillsPos.x + 14 && x > LAYOUT.plazaRadius + 4) return true; // east spur
+    return false;
+  }
+
+  const count = 46;
+  let attempts = 0;
+  let added = 0;
+  while (added < count && attempts < count * 8) {
+    attempts++;
+    const x = rand(b.minX + 8, b.maxX - 8);
+    const z = rand(b.minZ + 8, b.maxZ - 8);
+    if (blockedByRoads(x, z)) continue;
+    if (tooClose(x, z, 13)) continue;
+
+    const w = rand(6, 11);
+    const d = rand(6, 11);
+    const h = rand(9, 30);
+    const theme = SKYLINE_THEMES[Math.floor(Math.random() * SKYLINE_THEMES.length)];
+    scene.add(fillerBuilding(x, z, w, h, d, theme));
+    colliders.push({ type: 'circle', x, z, radius: Math.max(w, d) / 2 + 1 });
+    placed.push({ x, z });
+    added++;
+  }
+}
+
+// ---------- Traffic lights (lampu isyarat) at the plaza junctions ----------
+function trafficLight(x, z, facing) {
+  const g = group(x, 0, z);
+  g.rotation.y = facing;
+
+  const pole = cyl(0.1, 0.12, 4.2, 0x2b2b2b, 8);
+  pole.position.y = 2.1;
+  g.add(pole);
+
+  const housing = box(0.4, 1.15, 0.35, 0x1a1a1a);
+  housing.position.set(0, 4.0, 0.24);
+  g.add(housing);
+
+  const lensColors = [0xff3b30, 0xffcc00, 0x2fbf4f];
+  lensColors.forEach((c, i) => {
+    const lens = new THREE.Mesh(
+      new THREE.CircleGeometry(0.13, 10),
+      new THREE.MeshStandardMaterial({
+        color: c, emissive: c, emissiveIntensity: i === 2 ? 1.1 : 0.12, flatShading: true,
+      })
+    );
+    lens.position.set(0, 4.42 - i * 0.36, 0.42);
+    g.add(lens);
+  });
+
+  return g;
+}
+
+function zebraCrossing(cx, cz, width, alongX) {
+  const g = new THREE.Group();
+  const stripeCount = 6;
+  for (let i = 0; i < stripeCount; i++) {
+    const offset = (i - (stripeCount - 1) / 2) * 1.1;
+    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(alongX ? 0.6 : width, alongX ? width : 0.6), flatMat(0xf7f3ee));
+    stripe.rotation.x = -Math.PI / 2;
+    stripe.position.set(cx + (alongX ? offset : 0), 0.025, cz + (alongX ? 0 : offset));
+    g.add(stripe);
+  }
+  return g;
+}
+
+function buildTrafficLights(scene) {
+  const r = LAYOUT.plazaRadius;
+  // South junction (plaza -> boulevard)
+  scene.add(trafficLight(-9, r - 2, 0));
+  scene.add(trafficLight(9, r - 2, Math.PI));
+  scene.add(zebraCrossing(0, r - 1, 16, true));
+
+  // West junction (plaza -> About)
+  scene.add(trafficLight(-r + 2, -9, -Math.PI / 2));
+  scene.add(trafficLight(-r + 2, 9, Math.PI / 2));
+  scene.add(zebraCrossing(-r + 1, 0, 16, false));
+
+  // East junction (plaza -> Skills)
+  scene.add(trafficLight(r - 2, -9, Math.PI / 2));
+  scene.add(trafficLight(r - 2, 9, -Math.PI / 2));
+  scene.add(zebraCrossing(r - 1, 0, 16, false));
+}
+
 function scatterDecor(scene, colliders) {
   const rand = (min, max) => min + Math.random() * (max - min);
+  const anyTree = (x, z) => (Math.random() < 0.5 ? palmTree(x, z) : canopyTree(x, z));
   const shopPalette = [
     { wall: 0xe8d3a0, roof: 0xc1272d },
     { wall: 0xdce8d0, roof: 0x2f6b4a },
@@ -444,15 +696,17 @@ function scatterDecor(scene, colliders) {
     if (slot % 3 === 1) {
       scene.add(shophouse(leftX, z, -1, shopPalette[slot % shopPalette.length]));
       colliders.push({ type: 'circle', x: leftX, z, radius: 2.4 });
+      if (Math.random() < 0.6) scene.add(bush(leftX + rand(-1.5, 1.5), z + 2.6));
     } else {
-      scene.add(palmTree(leftX, z));
+      scene.add(anyTree(leftX, z));
     }
 
     if (slot % 3 === 2) {
       scene.add(shophouse(rightX, rightZ, 1, shopPalette[(slot + 2) % shopPalette.length]));
       colliders.push({ type: 'circle', x: rightX, z: rightZ, radius: 2.4 });
+      if (Math.random() < 0.6) scene.add(bush(rightX + rand(-1.5, 1.5), rightZ + 2.6));
     } else {
-      scene.add(palmTree(rightX, rightZ));
+      scene.add(anyTree(rightX, rightZ));
     }
     slot++;
   }
@@ -469,14 +723,33 @@ function scatterDecor(scene, colliders) {
     const angle = (i / 8) * Math.PI * 2;
     const r = LAYOUT.plazaRadius + 4;
     scene.add(flagPole(Math.cos(angle) * r, Math.sin(angle) * r, [flagColors[i % flagColors.length]]));
+    scene.add(bush(Math.cos(angle) * (r + 3), Math.sin(angle) * (r + 3)));
   }
 
-  // Trees scattered around plaza & side streets
+  // Trees scattered around plaza & side streets, kept clear of the roads
   for (let i = 0; i < 14; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const r = rand(32, 60);
-    scene.add(palmTree(Math.cos(angle) * r, Math.sin(angle) * r * 0.4));
+    let x, z;
+    let attempts = 0;
+    do {
+      const angle = Math.random() * Math.PI * 2;
+      const r = rand(32, 60);
+      x = Math.cos(angle) * r;
+      z = Math.sin(angle) * r * 0.4;
+      attempts++;
+    } while (isNearRoad(x, z) && attempts < 10);
+    if (!isNearRoad(x, z)) scene.add(anyTree(x, z));
   }
+
+  // Bushes lining the About/Skills/Contact building fronts
+  scene.add(bush(LAYOUT.aboutPos.x + 5, LAYOUT.aboutPos.z - 5));
+  scene.add(bush(LAYOUT.aboutPos.x + 5, LAYOUT.aboutPos.z + 5));
+  scene.add(bush(LAYOUT.skillsPos.x - 5, LAYOUT.skillsPos.z - 5));
+  scene.add(bush(LAYOUT.skillsPos.x - 5, LAYOUT.skillsPos.z + 5));
+  scene.add(bush(LAYOUT.contactPos.x - 5, LAYOUT.contactPos.z - 8));
+  scene.add(bush(LAYOUT.contactPos.x + 5, LAYOUT.contactPos.z - 8));
+
+  buildSkyline(scene, colliders);
+  buildTrafficLights(scene);
 }
 
 function buildLighting(scene) {

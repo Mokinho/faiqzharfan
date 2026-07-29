@@ -519,6 +519,63 @@ function buildAboutHouse(scene, zones, colliders) {
 }
 
 // ---------- Skills: workshop / garage ----------
+// A simple low-poly scooter, facing +Z by default (matches the group-forward
+// convention used throughout this file).
+function buildScooter(color) {
+  const g = new THREE.Group();
+
+  const wheelGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.12, 12);
+  const wheelMat = flatMat(0x1a1a1a, { roughness: 0.9 });
+  const frontWheel = new THREE.Mesh(wheelGeo, wheelMat);
+  frontWheel.rotation.z = Math.PI / 2;
+  frontWheel.position.set(0, 0.28, 0.55);
+  frontWheel.castShadow = true;
+  g.add(frontWheel);
+  const rearWheel = frontWheel.clone();
+  rearWheel.position.z = -0.5;
+  g.add(rearWheel);
+
+  const footboard = box(0.32, 0.06, 0.9, 0x2b2b2b);
+  footboard.position.y = 0.42;
+  g.add(footboard);
+
+  const bodyShield = box(0.36, 0.55, 0.35, color);
+  bodyShield.position.set(0, 0.68, 0.5);
+  bodyShield.rotation.x = 0.15;
+  g.add(bodyShield);
+
+  const seat = box(0.3, 0.12, 0.7, 0x1a1a1a);
+  seat.position.set(0, 0.62, -0.15);
+  g.add(seat);
+  const seatBack = box(0.3, 0.2, 0.15, 0x1a1a1a);
+  seatBack.position.set(0, 0.72, -0.5);
+  g.add(seatBack);
+
+  const forkPost = cyl(0.03, 0.03, 0.5, 0x888888, 6);
+  forkPost.rotation.x = -0.25;
+  forkPost.position.set(0, 0.68, 0.55);
+  g.add(forkPost);
+
+  const handlebar = box(0.04, 0.04, 0.5, 0x2b2b2b);
+  handlebar.position.set(0, 0.92, 0.58);
+  g.add(handlebar);
+  for (const s of [-1, 1]) {
+    const grip = cyl(0.03, 0.03, 0.12, 0x1a1a1a, 6);
+    grip.rotation.z = Math.PI / 2;
+    grip.position.set(s * 0.24, 0.92, 0.58);
+    g.add(grip);
+  }
+
+  const headlight = new THREE.Mesh(
+    new THREE.SphereGeometry(0.06, 8, 6),
+    new THREE.MeshStandardMaterial({ color: 0xfff6df, emissive: 0xffedb0, emissiveIntensity: 0.6, flatShading: true })
+  );
+  headlight.position.set(0, 0.65, 0.7);
+  g.add(headlight);
+
+  return g;
+}
+
 function buildSkillsWorkshop(scene, zones, colliders) {
   const pos = LAYOUT.skillsPos;
   const g = group(pos.x, 0, pos.z);
@@ -553,6 +610,16 @@ function buildSkillsWorkshop(scene, zones, colliders) {
   sign.rotation.x = Math.PI / 2;
   sign.position.set(0, 4.2, 4.4);
   g.add(sign);
+
+  // Scooters parked outside the bengkel
+  const scooter1 = buildScooter(0xd9622b);
+  scooter1.position.set(-4.4, 0, 5.4);
+  scooter1.rotation.y = 0.35;
+  g.add(scooter1);
+  const scooter2 = buildScooter(0x1c4f82);
+  scooter2.position.set(-3.1, 0, 5.9);
+  scooter2.rotation.y = -0.2;
+  g.add(scooter2);
 
   scene.add(g);
   colliders.push({ type: 'circle', x: pos.x, z: pos.z, radius: 7.5 });
@@ -604,8 +671,32 @@ function buildContactKedai(scene, zones, colliders) {
   sign.position.set(0, 5.6, -3.9);
   g.add(sign);
 
+  // A signboard for the kedai itself, planted a bit up the boulevard so
+  // drivers see it coming before they arrive.
+  const kedaiBillboardPost = cyl(0.18, 0.22, 3.4, 0x3a3a3a, 6);
+  kedaiBillboardPost.position.set(11, 1.7, -20);
+  g.add(kedaiBillboardPost);
+
+  const kedaiTexture = createKedaiBillboardTexture();
+  const kedaiPanel = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.6, 2.25),
+    new THREE.MeshStandardMaterial({
+      map: kedaiTexture, emissiveMap: kedaiTexture, emissive: 0xffffff, emissiveIntensity: 0.9,
+      roughness: 0.8, flatShading: true,
+    })
+  );
+  kedaiPanel.position.set(11, 3.9, -20);
+  kedaiPanel.rotation.y = Math.PI; // face oncoming traffic driving up the boulevard
+  kedaiPanel.castShadow = true;
+  g.add(kedaiPanel);
+
+  const kedaiFrame = box(3.8, 2.45, 0.12, 0x1a1a1a);
+  kedaiFrame.position.set(11, 3.9, -19.92);
+  g.add(kedaiFrame);
+
   scene.add(g);
   colliders.push({ type: 'circle', x: pos.x, z: pos.z, radius: 8 });
+  colliders.push({ type: 'circle', x: pos.x + 11, z: pos.z - 20, radius: 1.3 });
   zones.push({ id: 'contact', kind: 'contact', name: 'Kedai Kopi — Contact', position: pos.clone(), radius: 12, promptText: 'View Contact Details' });
 }
 
@@ -649,6 +740,28 @@ function drawIcon(ctx, type, cx, cy, size, color) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('$', 0, s * 0.03);
+      break;
+    case 'coffee':
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.32, -s * 0.15);
+      ctx.lineTo(s * 0.28, -s * 0.15);
+      ctx.lineTo(s * 0.22, s * 0.35);
+      ctx.quadraticCurveTo(0, s * 0.48, -s * 0.16, s * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = s * 0.07;
+      ctx.beginPath();
+      ctx.arc(s * 0.36, -s * 0.02, s * 0.14, -Math.PI * 0.6, Math.PI * 0.6);
+      ctx.stroke();
+      ctx.strokeStyle = shade;
+      ctx.lineWidth = s * 0.045;
+      for (const dx of [-s * 0.1, s * 0.08]) {
+        ctx.beginPath();
+        ctx.moveTo(dx, -s * 0.22);
+        ctx.quadraticCurveTo(dx - s * 0.05, -s * 0.34, dx, -s * 0.44);
+        ctx.stroke();
+      }
       break;
     case 'people':
       for (const dx of [-s * 0.2, s * 0.2]) {
@@ -893,6 +1006,45 @@ function createBillboardTexture(project) {
   return texture;
 }
 
+// A dedicated signboard for the kedai kopi itself, styled like a real shop
+// sign rather than the project billboards' website-mockup look.
+function createKedaiBillboardTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 320;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0, 0, 512, 320);
+  grad.addColorStop(0, '#c1272d');
+  grad.addColorStop(1, '#7a1a1a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 320);
+
+  ctx.strokeStyle = 'rgba(255,246,234,0.4)';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(14, 14, 512 - 28, 320 - 28);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  ctx.beginPath();
+  ctx.arc(256, 108, 62, 0, Math.PI * 2);
+  ctx.fill();
+  drawIcon(ctx, 'coffee', 256, 108, 78, '#fff6ea');
+
+  ctx.fillStyle = '#fff6ea';
+  ctx.textAlign = 'center';
+  ctx.font = '700 46px "Space Grotesk", sans-serif';
+  ctx.fillText('KEDAI KOPI', 256, 232);
+
+  ctx.fillStyle = 'rgba(255,246,234,0.85)';
+  ctx.font = '600 20px "Inter", sans-serif';
+  ctx.fillText("Let's talk — just ahead", 256, 268);
+  ctx.textAlign = 'left';
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   const words = text.split(' ');
   let line = '';
@@ -987,14 +1139,73 @@ function getWindowTexture(theme) {
 }
 
 const SKYLINE_THEMES = [
-  { base: '#1c2733', dark: '#243342', lit: '#ffe9a8', litChance: 0.35 },
-  { base: '#2a2420', dark: '#332b25', lit: '#ffd9a0', litChance: 0.3 },
-  { base: '#152229', dark: '#1c2e37', lit: '#bfe8ff', litChance: 0.28 },
-  { base: '#241c2a', dark: '#2e2434', lit: '#ffe0f0', litChance: 0.25 },
+  { type: 'tower', base: '#1c2733', dark: '#243342', lit: '#ffe9a8', litChance: 0.35 },
+  { type: 'tower', base: '#2a2420', dark: '#332b25', lit: '#ffd9a0', litChance: 0.3 },
+  { type: 'tower', base: '#152229', dark: '#1c2e37', lit: '#bfe8ff', litChance: 0.28 },
+  { type: 'tower', base: '#241c2a', dark: '#2e2434', lit: '#ffe0f0', litChance: 0.25 },
 ];
 
+// Colorful low/mid-rise heritage shophouse fronts — the Penang side of the
+// "crowded Malaysian city" look, mixed in among the taller Johor-style towers.
+const SHOPHOUSE_THEMES = [
+  { type: 'shophouse', base: '#e8b4bc', frame: '#fff6ea', awning: '#c1272d', lit: '#ffe9a8', litChance: 0.4 },
+  { type: 'shophouse', base: '#a9c9a0', frame: '#fff6ea', awning: '#2f6b4a', lit: '#ffd9a0', litChance: 0.35 },
+  { type: 'shophouse', base: '#f2d98d', frame: '#5a3a20', awning: '#1c4f82', lit: '#bfe8ff', litChance: 0.3 },
+  { type: 'shophouse', base: '#9fc9d9', frame: '#fff6ea', awning: '#e07a2b', lit: '#ffe0f0', litChance: 0.35 },
+  { type: 'shophouse', base: '#e0c8a0', frame: '#5a3a20', awning: '#5a2c6b', lit: '#ffe9a8', litChance: 0.3 },
+];
+const ALL_SKYLINE_THEMES = [...SKYLINE_THEMES, ...SHOPHOUSE_THEMES];
+
+const shophouseTextureCache = new Map();
+function getShophouseTexture(theme) {
+  if (shophouseTextureCache.has(theme)) return shophouseTextureCache.get(theme);
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = theme.base;
+  ctx.fillRect(0, 0, 128, 256);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillRect(0, 0, 128, 10);
+
+  const cols = 2, rows = 3;
+  const cellW = 128 / cols;
+  const cellH = (256 - 56) / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const wx = c * cellW + 14;
+      const wy = 14 + r * cellH + 10;
+      const ww = cellW - 28;
+      const wh = cellH - 24;
+      ctx.fillStyle = theme.frame;
+      ctx.fillRect(wx - 4, wy - 4, ww + 8, wh + 8);
+      const lit = Math.random() < theme.litChance;
+      ctx.fillStyle = lit ? theme.lit : 'rgba(0,0,0,0.55)';
+      ctx.fillRect(wx, wy, ww, wh);
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(wx + ww / 2, wy);
+      ctx.lineTo(wx + ww / 2, wy + wh);
+      ctx.stroke();
+    }
+  }
+
+  // Ground-floor awning band, like a shopfront
+  ctx.fillStyle = theme.awning;
+  ctx.fillRect(0, 210, 128, 46);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  shophouseTextureCache.set(theme, texture);
+  return texture;
+}
+
 function fillerBuilding(x, z, w, h, d, theme) {
-  const texture = getWindowTexture(theme);
+  const texture = theme.type === 'shophouse' ? getShophouseTexture(theme) : getWindowTexture(theme);
   const sideMat = new THREE.MeshStandardMaterial({
     map: texture, emissiveMap: texture, emissive: 0xffffff, emissiveIntensity: 0.85,
     roughness: 0.85, metalness: 0.05,
@@ -1015,9 +1226,11 @@ function fillerBuilding(x, z, w, h, d, theme) {
   return g;
 }
 
-// A distant, denser skyline scattered beyond the roads/zones so the horizon
-// doesn't read as empty grass along the whole drive — kept well clear of
-// drivable areas (plaza disc, boulevard corridor, and the two side spurs).
+// A dense skyline scattered beyond the roads/zones — mixing tall Johor-style
+// glass towers with colorful Penang-style shophouse fronts for a crowded
+// Malaysian city feel — kept clear of the drivable areas and the zone
+// buildings themselves (tight circular exclusions, not broad strips), so
+// buildings can crowd right up alongside About/Skills/Contact.
 function buildSkyline(scene, colliders) {
   const rand = (min, max) => min + Math.random() * (max - min);
   const b = LAYOUT.bounds;
@@ -1028,27 +1241,31 @@ function buildSkyline(scene, colliders) {
   }
 
   function blockedByRoads(x, z) {
-    if (Math.hypot(x, z) < LAYOUT.plazaRadius + 34) return true; // plaza, with room for the corner turns
-    if (Math.abs(x) < 36 && z > -30 && z < LAYOUT.contactPos.z + 20) return true; // boulevard + tree/shophouse row
-    if (Math.abs(z) < 22 && x > LAYOUT.aboutPos.x - 14 && x < -LAYOUT.plazaRadius - 4) return true; // west spur
-    if (Math.abs(z) < 22 && x < LAYOUT.skillsPos.x + 14 && x > LAYOUT.plazaRadius + 4) return true; // east spur
+    if (Math.hypot(x, z) < LAYOUT.plazaRadius + 16) return true; // plaza itself, with room for the corner turns
+    if (Math.abs(x) < 30 && z > -22 && z < LAYOUT.contactPos.z + 18) return true; // boulevard + tree/shophouse row
+    if (Math.abs(z) < 10 && x > LAYOUT.aboutPos.x - 10 && x < -LAYOUT.plazaRadius - 2) return true; // west spur road
+    if (Math.abs(z) < 10 && x < LAYOUT.skillsPos.x + 10 && x > LAYOUT.plazaRadius + 2) return true; // east spur road
+    if (Math.hypot(x - LAYOUT.aboutPos.x, z - LAYOUT.aboutPos.z) < 11) return true; // About house footprint
+    if (Math.hypot(x - LAYOUT.skillsPos.x, z - LAYOUT.skillsPos.z) < 11) return true; // Skills workshop footprint
+    if (Math.hypot(x - LAYOUT.contactPos.x, z - LAYOUT.contactPos.z) < 13) return true; // Contact kedai footprint
     return false;
   }
 
-  const count = 46;
+  const count = 130;
   let attempts = 0;
   let added = 0;
-  while (added < count && attempts < count * 8) {
+  while (added < count && attempts < count * 12) {
     attempts++;
-    const x = rand(b.minX + 8, b.maxX - 8);
-    const z = rand(b.minZ + 8, b.maxZ - 8);
+    const x = rand(b.minX + 6, b.maxX - 6);
+    const z = rand(b.minZ + 6, b.maxZ - 6);
     if (blockedByRoads(x, z)) continue;
-    if (tooClose(x, z, 13)) continue;
+    if (tooClose(x, z, 9)) continue;
 
-    const w = rand(6, 11);
-    const d = rand(6, 11);
-    const h = rand(9, 30);
-    const theme = SKYLINE_THEMES[Math.floor(Math.random() * SKYLINE_THEMES.length)];
+    const theme = ALL_SKYLINE_THEMES[Math.floor(Math.random() * ALL_SKYLINE_THEMES.length)];
+    const isShophouse = theme.type === 'shophouse';
+    const w = isShophouse ? rand(5, 8) : rand(6, 11);
+    const d = isShophouse ? rand(6, 9) : rand(6, 11);
+    const h = isShophouse ? rand(7, 13) : rand(9, 30);
     scene.add(fillerBuilding(x, z, w, h, d, theme));
     colliders.push({ type: 'circle', x, z, radius: Math.max(w, d) / 2 + 1 });
     placed.push({ x, z });

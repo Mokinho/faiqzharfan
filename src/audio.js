@@ -8,6 +8,10 @@ export class SoundEngine {
     this.reversePlaying = false;
     this.reverseBeepTimer = null;
     this.birdTimer = null;
+    this.musicGain = null;
+    this.musicTimer = null;
+    this.musicStep = 0;
+    this.musicNextTime = 0;
   }
 
   get ready() {
@@ -26,6 +30,7 @@ export class SoundEngine {
     this._buildEngine();
     this._buildWind();
     this._scheduleBird();
+    this._startMusic();
   }
 
   resume() {
@@ -206,5 +211,96 @@ export class SoundEngine {
       osc.stop(t + 0.1);
       t += 0.11 + Math.random() * 0.06;
     }
+  }
+
+  // ---------- Background chiptune soundtrack ----------
+  // A tiny step sequencer (bass + arpeggiated lead + kick/hat) scheduled with
+  // the standard "lookahead" pattern so timing stays tight regardless of
+  // setInterval jitter. Routed through its own gain into the master bus, so
+  // the existing mute toggle silences it along with everything else.
+  _startMusic() {
+    this.musicGain = this.ctx.createGain();
+    this.musicGain.gain.value = 0.16;
+    this.musicGain.connect(this.master);
+
+    this.musicBpm = 126;
+    this.musicStepDur = 60 / this.musicBpm / 4; // 16th notes
+    this.musicRoot = 130.81; // C3
+    this.musicBass = [0, null, null, null, 7, null, null, null, 9, null, null, null, 5, null, 7, null];
+    this.musicLead = [
+      12, null, 16, null, 19, 16, 12, null,
+      14, null, 17, null, 21, 17, 14, null,
+      12, null, 16, null, 19, 16, 12, 16,
+      11, null, 15, null, 19, 15, 12, null,
+    ];
+    this.musicStep = 0;
+    this.musicNextTime = this.ctx.currentTime + 0.15;
+    this.musicTimer = setInterval(() => this._scheduleMusicSteps(), 100);
+  }
+
+  _scheduleMusicSteps() {
+    const lookahead = 0.25;
+    while (this.musicNextTime < this.ctx.currentTime + lookahead) {
+      this._playMusicStep(this.musicStep, this.musicNextTime);
+      this.musicNextTime += this.musicStepDur;
+      this.musicStep = (this.musicStep + 1) % this.musicLead.length;
+    }
+  }
+
+  _playMusicStep(step, time) {
+    const bassNote = this.musicBass[step % this.musicBass.length];
+    if (bassNote !== null) {
+      this._musicTone(this.musicRoot * Math.pow(2, bassNote / 12), time, this.musicStepDur * 3.4, 'triangle', 0.45);
+    }
+    const leadNote = this.musicLead[step];
+    if (leadNote !== null) {
+      this._musicTone(this.musicRoot * 2 * Math.pow(2, leadNote / 12), time, this.musicStepDur * 0.85, 'square', 0.16);
+    }
+    if (step % 4 === 0) this._musicKick(time);
+    if (step % 4 === 2) this._musicHat(time);
+  }
+
+  _musicTone(freq, time, dur, type, gainAmt) {
+    const osc = this.ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.value = freq;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, time);
+    g.gain.linearRampToValueAtTime(gainAmt, time + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(g);
+    g.connect(this.musicGain);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+  }
+
+  _musicKick(time) {
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(130, time);
+    osc.frequency.exponentialRampToValueAtTime(38, time + 0.11);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.45, time);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.14);
+    osc.connect(g);
+    g.connect(this.musicGain);
+    osc.start(time);
+    osc.stop(time + 0.15);
+  }
+
+  _musicHat(time) {
+    const dur = 0.035;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(dur);
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 7000;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.1, time);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    src.connect(filter);
+    filter.connect(g);
+    g.connect(this.musicGain);
+    src.start(time);
   }
 }

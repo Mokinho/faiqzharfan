@@ -246,6 +246,38 @@ function streetLight(x, z) {
   return g;
 }
 
+// A simple park bench, facing +Z by default — rotate to face the road.
+function bench(x, z, facing) {
+  const g = group(x, 0, z);
+  g.rotation.y = facing;
+
+  const woodColor = 0x8a5a2b;
+  const frameColor = 0x2b2b2b;
+
+  const seat = box(1.6, 0.08, 0.5, woodColor);
+  seat.position.y = 0.45;
+  g.add(seat);
+
+  const back = box(1.6, 0.5, 0.08, woodColor);
+  back.position.set(0, 0.74, -0.22);
+  back.rotation.x = -0.15;
+  g.add(back);
+
+  for (const sx of [-0.65, 0.65]) {
+    const legFront = box(0.06, 0.45, 0.06, frameColor);
+    legFront.position.set(sx, 0.22, 0.2);
+    g.add(legFront);
+    const legBack = box(0.06, 0.72, 0.06, frameColor);
+    legBack.position.set(sx, 0.36, -0.2);
+    g.add(legBack);
+    const arm = box(0.06, 0.06, 0.5, frameColor);
+    arm.position.set(sx, 0.58, 0);
+    g.add(arm);
+  }
+
+  return g;
+}
+
 function flagPole(x, z, colors) {
   const g = group(x, 0, z);
   const pole = cyl(0.06, 0.06, 5, 0xcccccc, 6);
@@ -1125,6 +1157,12 @@ function scatterDecor(scene, colliders) {
     scene.add(streetLight(9.5, z + 8.5));
   }
 
+  // Benches along the boulevard sidewalks, facing the road
+  for (let z = LAYOUT.boulevardStartZ + 10; z < LAYOUT.contactPos.z - 10; z += 24) {
+    scene.add(bench(-7.2, z, Math.PI / 2));
+    scene.add(bench(7.2, z + 12, -Math.PI / 2));
+  }
+
   // Flags around the plaza (Malaysian-inspired palette used decoratively)
   const flagColors = [0xc1272d, 0xf7f3ee, 0x0033a0, 0xffcc00];
   for (let i = 0; i < 8; i++) {
@@ -1161,53 +1199,80 @@ function scatterDecor(scene, colliders) {
 }
 
 function buildStarfield(scene) {
-  const count = 700;
+  const count = 500;
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
     const r = 450 + Math.random() * 150;
     const theta = Math.random() * Math.PI * 2;
-    const phi = Math.random() * 0.55 * Math.PI; // keep stars above the horizon
+    const phi = Math.random() * 0.4 * Math.PI; // keep stars up near the zenith, away from the sunset glow
     positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
     positions[i * 3 + 1] = r * Math.cos(phi) + 40;
     positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false });
+  const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.4, sizeAttenuation: false, transparent: true, opacity: 0.7 });
   const stars = new THREE.Points(geo, mat);
   scene.add(stars);
 
-  // A simple decorative moon
+  // A simple decorative moon, already rising while the sunset is still going
   const moon = new THREE.Mesh(
     new THREE.SphereGeometry(9, 12, 10),
-    new THREE.MeshStandardMaterial({ color: 0xf3f4ec, emissive: 0xdfe6ff, emissiveIntensity: 0.9, flatShading: true })
+    new THREE.MeshStandardMaterial({ color: 0xf3f4ec, emissive: 0xf0d9c2, emissiveIntensity: 0.8, flatShading: true })
   );
   moon.position.set(-140, 130, 160);
   scene.add(moon);
 }
 
+// A big inward-facing sphere painted with a vertical gradient stands in for a
+// proper sunset sky — fog:false keeps it from being washed out to flat fog color.
+function buildSkyDome(scene) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 2;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#160f2c');
+  grad.addColorStop(0.32, '#3d2148');
+  grad.addColorStop(0.52, '#8a3a4a');
+  grad.addColorStop(0.7, '#d9622b');
+  grad.addColorStop(0.85, '#f2a13c');
+  grad.addColorStop(1, '#ffd28a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 2, 512);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(480, 24, 16),
+    new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, fog: false, depthWrite: false })
+  );
+  scene.add(dome);
+}
+
 function buildLighting(scene) {
-  const hemi = new THREE.HemisphereLight(0x1c2a4a, 0x0b160d, 0.55);
+  const hemi = new THREE.HemisphereLight(0xffb877, 0x2a1f16, 0.6);
   scene.add(hemi);
 
-  const fill = new THREE.AmbientLight(0x223349, 0.25);
+  const fill = new THREE.AmbientLight(0x4a3324, 0.28);
   scene.add(fill);
 
-  const moonlight = new THREE.DirectionalLight(0xaecbff, 0.65);
-  moonlight.position.set(60, 90, 40);
-  moonlight.castShadow = true;
-  moonlight.shadow.mapSize.set(2048, 2048);
-  moonlight.shadow.camera.left = -140;
-  moonlight.shadow.camera.right = 140;
-  moonlight.shadow.camera.top = 140;
-  moonlight.shadow.camera.bottom = -140;
-  moonlight.shadow.camera.far = 260;
-  moonlight.shadow.bias = -0.0015;
-  scene.add(moonlight);
+  const sunsetLight = new THREE.DirectionalLight(0xff9a4d, 0.85);
+  sunsetLight.position.set(150, 30, -70);
+  sunsetLight.castShadow = true;
+  sunsetLight.shadow.mapSize.set(2048, 2048);
+  sunsetLight.shadow.camera.left = -140;
+  sunsetLight.shadow.camera.right = 140;
+  sunsetLight.shadow.camera.top = 140;
+  sunsetLight.shadow.camera.bottom = -140;
+  sunsetLight.shadow.camera.far = 260;
+  sunsetLight.shadow.bias = -0.0015;
+  scene.add(sunsetLight);
 
-  scene.fog = new THREE.Fog(0x0a1428, 70, 230);
-  scene.background = new THREE.Color(0x060b18);
+  scene.fog = new THREE.Fog(0xd9773c, 70, 230);
 
+  buildSkyDome(scene);
   buildStarfield(scene);
 }
 

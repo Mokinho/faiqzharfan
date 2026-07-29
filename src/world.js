@@ -1211,6 +1211,93 @@ function buildLighting(scene) {
   buildStarfield(scene);
 }
 
+// ---------- Perimeter fence: hides the edge of the finite ground plane ----------
+let fenceTileTexture = null;
+function getFenceTileTexture() {
+  if (fenceTileTexture) return fenceTileTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#7a5230';
+  ctx.fillRect(0, 0, 64, 160);
+
+  // Plank seams
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.fillRect(0, 0, 3, 160);
+  ctx.fillRect(61, 0, 3, 160);
+
+  // Wood grain lines
+  ctx.strokeStyle = 'rgba(0,0,0,0.14)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(8 + i * 10, 14);
+    ctx.lineTo(8 + i * 10, 146);
+    ctx.stroke();
+  }
+
+  // Top cap rail + bottom base rail
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(0, 0, 64, 14);
+  ctx.fillRect(0, 138, 64, 22);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillRect(0, 14, 64, 4);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  fenceTileTexture = texture;
+  return texture;
+}
+
+function buildPerimeterFence(scene) {
+  const b = LAYOUT.bounds;
+  const height = 3.4;
+  const plankWidth = 2.2; // world units per texture tile, keeps plank scale consistent
+  const segLen = 22;
+
+  function segment(cx, cz, length, alongX) {
+    const tex = getFenceTileTexture().clone();
+    tex.needsUpdate = true;
+    tex.repeat.set(length / plankWidth, 1);
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.05, flatShading: true });
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(alongX ? length : 0.5, height, alongX ? 0.5 : length),
+      mat
+    );
+    mesh.position.set(cx, height / 2 + bulgeHeight(cx, cz), cz);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.terrain = true; // already positioned on the curve; skip the generic bulge pass
+    scene.add(mesh);
+  }
+
+  for (let x = b.minX; x < b.maxX; x += segLen) {
+    const len = Math.min(segLen, b.maxX - x);
+    const cx = x + len / 2;
+    segment(cx, b.minZ, len, true);
+    segment(cx, b.maxZ, len, true);
+  }
+  for (let z = b.minZ; z < b.maxZ; z += segLen) {
+    const len = Math.min(segLen, b.maxZ - z);
+    const cz = z + len / 2;
+    segment(b.minX, cz, len, false);
+    segment(b.maxX, cz, len, false);
+  }
+
+  // Corner posts for a finished look
+  const postMat = 0x5a3a20;
+  for (const [cx, cz] of [[b.minX, b.minZ], [b.maxX, b.minZ], [b.minX, b.maxZ], [b.maxX, b.maxZ]]) {
+    const post = cyl(0.4, 0.45, height + 0.6, postMat, 8);
+    post.position.set(cx, (height + 0.6) / 2 + bulgeHeight(cx, cz), cz);
+    post.userData.terrain = true;
+    scene.add(post);
+  }
+}
+
 export function buildWorld(scene) {
   const zones = [];
   const colliders = [];
@@ -1223,6 +1310,7 @@ export function buildWorld(scene) {
   buildContactKedai(scene, zones, colliders);
   buildBillboards(scene, zones, colliders);
   scatterDecor(scene, colliders);
+  buildPerimeterFence(scene);
   applyWorldBulge(scene);
 
   return { zones, colliders };

@@ -300,7 +300,17 @@ kbd {
 }
 @media (pointer: coarse) {
   .touch-controls { display: block; }
-  .hud-bottom { bottom: 9.5rem; }
+  .hud-bottom {
+    top: 4.6rem;
+    bottom: auto;
+    left: 0.8rem;
+    gap: .5rem;
+  }
+  #minimap { width: 80px; height: 80px; }
+  .minimap-wrap { padding: 4px; border-radius: 10px; }
+  .speedo { padding: .4rem .6rem; min-width: 56px; border-radius: 10px; }
+  .speedo-value { font-size: 1.1rem; }
+  .speedo-label { font-size: .55rem; }
 }
 .touch-wheel {
   position: absolute;

@@ -1063,11 +1063,32 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   lines.forEach((l, i) => ctx.fillText(l.trim(), x, startY + i * lineHeight));
 }
 
+const billboardPathMat = flatMat(0x35322c);
+// A short paved connector linking the boulevard's paved edge (x = +/-8) out to
+// each billboard's post, so the sign reads as "just off the road" instead of
+// standing alone in the grass.
+function buildBillboardConnector(scene, side, z) {
+  const roadEdge = 8;
+  const postX = side * 11;
+  const cx = (roadEdge * side + postX) / 2;
+  const sx = Math.abs(postX - roadEdge * side);
+  const geo = new THREE.PlaneGeometry(sx, 2.4, Math.max(2, Math.round(sx / 2)), 2);
+  applyBulgeToPlane(geo, cx, z, 0.015);
+  const path = new THREE.Mesh(geo, billboardPathMat);
+  path.rotation.x = -Math.PI / 2;
+  path.position.set(cx, 0, z);
+  path.receiveShadow = true;
+  path.userData.terrain = true;
+  scene.add(path);
+}
+
 function buildBillboards(scene, zones, colliders) {
   PROJECTS.forEach((project, i) => {
     const side = i % 2 === 0 ? -1 : 1;
     const z = LAYOUT.boulevardStartZ + Math.floor(i / 2) * LAYOUT.boulevardSpacing * 2 + (i % 2) * LAYOUT.boulevardSpacing;
     const x = side * 11;
+
+    buildBillboardConnector(scene, side, z);
 
     const g = group(x, 0, z);
     g.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
@@ -1231,45 +1252,48 @@ function fillerBuilding(x, z, w, h, d, theme) {
 // Malaysian city feel — kept clear of the drivable areas and the zone
 // buildings themselves (tight circular exclusions, not broad strips), so
 // buildings can crowd right up alongside About/Skills/Contact.
+// A dense but orderly skyline: buildings sit on a regular grid (evenly
+// spaced, axis-aligned, all parallel to each other and to the roads)
+// instead of being scattered at random positions. Each grid cell is
+// skipped only if the building's full footprint — not just its center
+// point — would reach into the plaza, boulevard, a spur road, or one of
+// the zone buildings, which is what previously let an oversized building
+// clip into the main road.
 function buildSkyline(scene, colliders) {
-  const rand = (min, max) => min + Math.random() * (max - min);
   const b = LAYOUT.bounds;
-  const placed = [];
+  const cell = 16;
+  const margin = 8;
+  const buildingSize = 10;
+  const half = buildingSize / 2 + 1; // clearance so neighbouring buildings never touch
 
-  function tooClose(x, z, minDist) {
-    return placed.some((p) => Math.hypot(p.x - x, p.z - z) < minDist);
-  }
-
-  function blockedByRoads(x, z) {
-    if (Math.hypot(x, z) < LAYOUT.plazaRadius + 16) return true; // plaza itself, with room for the corner turns
-    if (Math.abs(x) < 30 && z > -22 && z < LAYOUT.contactPos.z + 18) return true; // boulevard + tree/shophouse row
-    if (Math.abs(z) < 10 && x > LAYOUT.aboutPos.x - 10 && x < -LAYOUT.plazaRadius - 2) return true; // west spur road
-    if (Math.abs(z) < 10 && x < LAYOUT.skillsPos.x + 10 && x > LAYOUT.plazaRadius + 2) return true; // east spur road
-    if (Math.hypot(x - LAYOUT.aboutPos.x, z - LAYOUT.aboutPos.z) < 11) return true; // About house footprint
-    if (Math.hypot(x - LAYOUT.skillsPos.x, z - LAYOUT.skillsPos.z) < 11) return true; // Skills workshop footprint
-    if (Math.hypot(x - LAYOUT.contactPos.x, z - LAYOUT.contactPos.z) < 13) return true; // Contact kedai footprint
+  function footprintBlocked(cx, cz) {
+    if (Math.hypot(cx, cz) < LAYOUT.plazaRadius + 16 + half) return true; // plaza + corner turns
+    if (Math.abs(cx) < 30 + half && cz > -22 - half && cz < LAYOUT.contactPos.z + 18 + half) return true; // boulevard + tree/shophouse row
+    if (Math.abs(cz) < 10 + half && cx > LAYOUT.aboutPos.x - 10 - half && cx < -LAYOUT.plazaRadius - 2 + half) return true; // west spur road
+    if (Math.abs(cz) < 10 + half && cx < LAYOUT.skillsPos.x + 10 + half && cx > LAYOUT.plazaRadius + 2 - half) return true; // east spur road
+    if (Math.hypot(cx - LAYOUT.aboutPos.x, cz - LAYOUT.aboutPos.z) < 11 + half) return true; // About house footprint
+    if (Math.hypot(cx - LAYOUT.skillsPos.x, cz - LAYOUT.skillsPos.z) < 11 + half) return true; // Skills workshop footprint
+    if (Math.hypot(cx - LAYOUT.contactPos.x, cz - LAYOUT.contactPos.z) < 13 + half) return true; // Contact kedai footprint
     return false;
   }
 
-  const count = 130;
-  let attempts = 0;
-  let added = 0;
-  while (added < count && attempts < count * 12) {
-    attempts++;
-    const x = rand(b.minX + 6, b.maxX - 6);
-    const z = rand(b.minZ + 6, b.maxZ - 6);
-    if (blockedByRoads(x, z)) continue;
-    if (tooClose(x, z, 9)) continue;
-
-    const theme = ALL_SKYLINE_THEMES[Math.floor(Math.random() * ALL_SKYLINE_THEMES.length)];
-    const isShophouse = theme.type === 'shophouse';
-    const w = isShophouse ? rand(5, 8) : rand(6, 11);
-    const d = isShophouse ? rand(6, 9) : rand(6, 11);
-    const h = isShophouse ? rand(7, 13) : rand(9, 30);
-    scene.add(fillerBuilding(x, z, w, h, d, theme));
-    colliders.push({ type: 'circle', x, z, radius: Math.max(w, d) / 2 + 1 });
-    placed.push({ x, z });
-    added++;
+  let row = 0;
+  for (let z = b.minZ + margin; z <= b.maxZ - margin; z += cell) {
+    let col = 0;
+    for (let x = b.minX + margin; x <= b.maxX - margin; x += cell) {
+      if (!footprintBlocked(x, z)) {
+        const theme = ALL_SKYLINE_THEMES[(row * 3 + col * 5) % ALL_SKYLINE_THEMES.length];
+        const isShophouse = theme.type === 'shophouse';
+        const w = isShophouse ? 7 : 9;
+        const d = isShophouse ? 7 : 9;
+        const heightVariant = (row * 2 + col) % 5;
+        const h = isShophouse ? 9 + heightVariant : 10 + heightVariant * 5;
+        scene.add(fillerBuilding(x, z, w, h, d, theme));
+        colliders.push({ type: 'circle', x, z, radius: Math.max(w, d) / 2 + 1 });
+      }
+      col++;
+    }
+    row++;
   }
 }
 

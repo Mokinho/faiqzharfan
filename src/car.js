@@ -7,112 +7,114 @@ function flatMat(color, extra) {
 
 function buildCarMesh() {
   const car = new THREE.Group();
-  const bodyColor = 0xe85002;
+  const bodyColor = 0xe3e6e8; // Tesla-style pearl white
   const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x8fd0e8, transparent: true, opacity: 0.55, roughness: 0.12, metalness: 0.4, flatShading: true,
+    color: 0x2a3138, transparent: true, opacity: 0.7, roughness: 0.1, metalness: 0.5, flatShading: true,
   });
 
-  // Lower chassis
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.5, 3.6), flatMat(bodyColor));
-  chassis.position.y = 0.48;
+  // Lower chassis — low, smooth EV body, no visible grille/exhaust
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.44, 3.7), flatMat(bodyColor));
+  chassis.position.y = 0.42;
   chassis.castShadow = true;
   car.add(chassis);
 
-  // Hood — sloped down toward the front bumper
-  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.14, 1.2), flatMat(bodyColor));
-  hood.position.set(0, 0.8, 1.15);
-  hood.rotation.x = 0.09;
+  // Short, gently sloped hood — EV cab-forward proportions
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.12, 0.85), flatMat(bodyColor));
+  hood.position.set(0, 0.72, 1.42);
+  hood.rotation.x = 0.13;
   hood.castShadow = true;
   car.add(hood);
 
-  // Trunk — slight rear slope
-  const trunk = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.14, 0.95), flatMat(bodyColor));
-  trunk.position.set(0, 0.83, -1.3);
-  trunk.rotation.x = -0.06;
+  // Long fastback trunk line
+  const trunk = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.12, 1.25), flatMat(bodyColor));
+  trunk.position.set(0, 0.82, -1.25);
+  trunk.rotation.x = -0.12;
   trunk.castShadow = true;
   car.add(trunk);
 
-  // Cabin / greenhouse
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.56, 1.85), flatMat(0xf7f3ee));
-  cabin.position.set(0, 1.1, -0.05);
-  cabin.castShadow = true;
-  car.add(cabin);
+  // Panoramic glass roof — one continuous dark glass panel from windshield to trunk
+  const glassRoof = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.48, 2.15), glassMat);
+  glassRoof.position.set(0, 1.03, -0.15);
+  glassRoof.castShadow = true;
+  car.add(glassRoof);
 
-  // Windshield + rear window (angled, tinted)
-  const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.55, 0.08), glassMat);
-  windshield.position.set(0, 0.98, 0.87);
-  windshield.rotation.x = 0.62;
+  // Windshield + rear glass (angled, blending into the panoramic roof)
+  const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.52, 0.08), glassMat);
+  windshield.position.set(0, 0.92, 0.85);
+  windshield.rotation.x = 0.6;
   car.add(windshield);
 
-  const rearWindow = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.5, 0.08), glassMat);
-  rearWindow.position.set(0, 1.0, -0.98);
-  rearWindow.rotation.x = -0.55;
+  const rearWindow = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.46, 0.08), glassMat);
+  rearWindow.position.set(0, 0.94, -1.15);
+  rearWindow.rotation.x = -0.5;
   car.add(rearWindow);
 
   // Side glass strips
-  const sideGlassGeo = new THREE.BoxGeometry(0.06, 0.38, 1.5);
+  const sideGlassGeo = new THREE.BoxGeometry(0.06, 0.34, 1.75);
   const sideGlassL = new THREE.Mesh(sideGlassGeo, glassMat);
-  sideGlassL.position.set(-0.79, 1.14, -0.05);
+  sideGlassL.position.set(-0.79, 1.06, -0.15);
   car.add(sideGlassL);
   const sideGlassR = new THREE.Mesh(sideGlassGeo, glassMat);
-  sideGlassR.position.set(0.79, 1.14, -0.05);
+  sideGlassR.position.set(0.79, 1.06, -0.15);
   car.add(sideGlassR);
 
-  // Side mirrors
-  const mirrorGeo = new THREE.BoxGeometry(0.1, 0.12, 0.24);
+  // Compact aero side mirrors
+  const mirrorGeo = new THREE.BoxGeometry(0.09, 0.1, 0.2);
   for (const sx of [-1.0, 1.0]) {
     const mirror = new THREE.Mesh(mirrorGeo, flatMat(bodyColor));
-    mirror.position.set(sx, 0.95, 0.62);
+    mirror.position.set(sx, 0.9, 0.62);
     mirror.castShadow = true;
     car.add(mirror);
   }
 
-  // Door seams (thin inset lines for a less slab-like body)
-  const seamMat = flatMat(0xb33d00);
-  for (const z of [0.35, -0.55]) {
-    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.42, 0.04), seamMat);
-    seam.position.set(0.96, 0.62, z);
-    car.add(seam);
-    const seamL = seam.clone();
-    seamL.position.x = -0.96;
-    car.add(seamL);
-  }
-
-  // Bumpers
-  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(2, 0.32, 0.28), flatMat(0x1a1a1a));
-  bumperF.position.set(0, 0.4, 1.86);
+  // Bumpers — body-colored with a thin black lower diffuser (no chrome/plastic grille)
+  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(1.94, 0.3, 0.24), flatMat(bodyColor));
+  bumperF.position.set(0, 0.4, 1.9);
   car.add(bumperF);
   const bumperB = bumperF.clone();
-  bumperB.position.z = -1.86;
+  bumperB.position.z = -1.9;
   car.add(bumperB);
 
-  // Grille
-  const grille = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.2, 0.06), flatMat(0x141414));
-  grille.position.set(0, 0.56, 1.82);
-  car.add(grille);
+  const diffuserGeo = new THREE.BoxGeometry(1.9, 0.08, 0.1);
+  const diffuserMat = flatMat(0x141414);
+  const diffuserF = new THREE.Mesh(diffuserGeo, diffuserMat);
+  diffuserF.position.set(0, 0.24, 1.95);
+  car.add(diffuserF);
+  const diffuserB = diffuserF.clone();
+  diffuserB.position.z = -1.95;
+  car.add(diffuserB);
 
-  // Headlights, taillights & reverse lights
-  const headlightGeo = new THREE.BoxGeometry(0.32, 0.2, 0.05);
+  // Headlights, taillights & reverse lights — slim EV light units
+  const headlightGeo = new THREE.BoxGeometry(0.34, 0.13, 0.05);
   const headlightMat = new THREE.MeshStandardMaterial({ color: 0xfff6df, emissive: 0xffedb0, emissiveIntensity: 1.6, flatShading: true });
   const taillightMat = new THREE.MeshStandardMaterial({ color: 0xb30000, emissive: 0x660000, emissiveIntensity: 0.6, flatShading: true });
   const reverseLightGeo = new THREE.BoxGeometry(0.14, 0.16, 0.05);
   const reverseLights = [];
   for (const sx of [-0.65, 0.65]) {
     const hl = new THREE.Mesh(headlightGeo, headlightMat);
-    hl.position.set(sx, 0.62, 1.87);
+    hl.position.set(sx, 0.6, 1.91);
     car.add(hl);
 
     const tl = new THREE.Mesh(headlightGeo, taillightMat);
-    tl.position.set(sx, 0.62, -1.87);
+    tl.position.set(sx, 0.6, -1.91);
     car.add(tl);
 
     // Off by default; Car.update() lights these up bright red while reversing.
     const reverseMat = new THREE.MeshStandardMaterial({ color: 0x3a0a0a, emissive: 0xff2020, emissiveIntensity: 0, flatShading: true });
     const rl = new THREE.Mesh(reverseLightGeo, reverseMat);
-    rl.position.set(sx * 0.42, 0.62, -1.88);
+    rl.position.set(sx * 0.42, 0.6, -1.92);
     car.add(rl);
     reverseLights.push(rl);
   }
+
+  // Full-width rear light bar — cosmetic strip linking the two taillights,
+  // echoing the Model 3's signature connected tail light.
+  const lightBar = new THREE.Mesh(
+    new THREE.BoxGeometry(1.0, 0.05, 0.04),
+    new THREE.MeshStandardMaterial({ color: 0x8a0000, emissive: 0x990000, emissiveIntensity: 0.5, flatShading: true })
+  );
+  lightBar.position.set(0, 0.6, -1.91);
+  car.add(lightBar);
 
   // Real headlight spotlights — no shadow casting to keep this cheap
   const headlightTarget = new THREE.Object3D();
@@ -130,17 +132,13 @@ function buildCarMesh() {
   car.userData.reverseLights = reverseLights;
   car.userData.spotlights = spotlights;
 
-  // Exhaust pipe
-  const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.25, 8), flatMat(0x888888, { roughness: 0.4, metalness: 0.7 }));
-  exhaust.rotation.z = Math.PI / 2;
-  exhaust.position.set(0.55, 0.32, -1.9);
-  car.add(exhaust);
-
-  // Wheels — tire + inset rim for a two-tone look
+  // Wheels — tire + inset rim, with a flat aero cover disc for the Tesla look
   const tireMat = flatMat(0x141414, { roughness: 0.95, metalness: 0 });
   const rimMat = new THREE.MeshStandardMaterial({ color: 0xcfd6da, roughness: 0.35, metalness: 0.75, flatShading: true });
+  const aeroCoverMat = new THREE.MeshStandardMaterial({ color: 0xe8ebec, roughness: 0.3, metalness: 0.6, flatShading: true });
   const tireGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.32, 16);
   const rimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.34, 10);
+  const aeroCoverGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.02, 16);
   const wheels = [];
   for (const [wx, wz] of [[-0.98, 1.15], [0.98, 1.15], [-0.98, -1.2], [0.98, -1.2]]) {
     const wheel = new THREE.Group();
@@ -151,6 +149,10 @@ function buildCarMesh() {
     const rim = new THREE.Mesh(rimGeo, rimMat);
     rim.rotation.z = Math.PI / 2;
     wheel.add(rim);
+    const aeroCover = new THREE.Mesh(aeroCoverGeo, aeroCoverMat);
+    aeroCover.rotation.z = Math.PI / 2;
+    aeroCover.position.x = wx > 0 ? 0.17 : -0.17;
+    wheel.add(aeroCover);
     wheel.position.set(wx, 0.42, wz);
     car.add(wheel);
     wheels.push(wheel);

@@ -83,3 +83,9 @@ directory is `.`.
 - Everything in the 3D world (car, buildings, trees, billboards) is built
   procedurally from primitive geometry — there are no external 3D model or
   texture files to manage.
+
+## License
+
+© 2026 Faiq Zharfan. All rights reserved.
+
+This code is published for viewing only. You may not copy, modify, redistribute or reuse it, in whole or in part, without written permission from the author. Third-party libraries included in this repository (such as Three.js) remain under their own licenses.
